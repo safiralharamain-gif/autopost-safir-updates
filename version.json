@@ -1,0 +1,12 @@
+{
+  "app": "autopost-safir",
+  "version": "1.3.18",
+  "channel": "stable",
+  "notes": "تحديث 1.3.18: تحسين واتساب وإعادة الاستهداف وتجميع مراسلي الصفحات مع الحفاظ على جميع الجلسات والبيانات.",
+  "downloadUrl": "https://github.com/safiralharamain-gif/autopost-safir-updates/releases/download/v1.3.18/AutoPost-Safir-Unified-1.3.18-Update.zip",
+  "fileName": "AutoPost-Safir-Unified-1.3.18-Update.zip",
+  "packageType": "zip",
+  "sizeBytes": 14082734,
+  "sha256": "579fff991686ab5f3a8d0cca87c9323e72d4a047b8a1da5a19389491c0de9614",
+  "mandatory": false
+}
