@@ -1,0 +1,142 @@
+<!doctype html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>إدارة محتوى العمرة | سفير الحرمين</title>
+<style>
+*{box-sizing:border-box}body{margin:0;font-family:Arial,Tahoma,sans-serif;background:#f8f4ea;color:#27231f;font-size:17px;line-height:1.7}
+header{background:#fff;border-bottom:1px solid #e7dcc4;position:sticky;top:0;z-index:20}.wrap{max-width:1100px;margin:auto;padding:22px}
+h1,h2,h3{margin-top:0}.gold{color:#9b7326}.card{background:#fff;border:1px solid #e4d6b8;border-radius:22px;padding:24px;margin:20px 0;box-shadow:0 10px 30px rgba(0,0,0,.05)}
+.grid{display:grid;grid-template-columns:1fr 1fr;gap:18px}.full{grid-column:1/-1}label{font-weight:700;display:block;margin-bottom:6px}
+input,textarea{width:100%;border:1px solid #d9cfbe;border-radius:12px;padding:12px 14px;font:inherit;background:#fff}
+textarea{min-height:110px;resize:vertical}.btn{border:0;border-radius:999px;padding:12px 22px;font-weight:700;cursor:pointer}
+.primary{background:#b88a32;color:#fff}.dark{background:#27231f;color:#fff}.danger{background:#7d302a;color:#fff}.soft{background:#efe6d5;color:#3e352d}
+.actions{display:flex;gap:10px;flex-wrap:wrap}.trip{border:1px solid #eadfc9;border-radius:18px;padding:18px;margin-top:16px;background:#fffdf9}
+.note{background:#fff9e9;border:1px solid #e9d6a8;border-radius:15px;padding:14px;margin-bottom:18px}.status{font-weight:700;margin-right:10px}
+@media(max-width:760px){.grid{grid-template-columns:1fr}.full{grid-column:auto}.wrap{padding:14px}}
+</style>
+</head>
+<body>
+<header><div class="wrap"><h1 class="gold">إدارة محتوى صفحة العمرة</h1><div>أصل المقام · سفير الحرمين</div></div></header>
+<main class="wrap">
+<div class="note">هذه اللوحة لا تحفظ مفتاح GitHub داخل الموقع. أدخل المفتاح وقت الحفظ فقط، وسيُستخدم لتحديث ملف المحتوى في الفرع التجريبي.</div>
+
+<section class="card">
+<h2 class="gold">شرح العمرة</h2>
+<div class="grid">
+<div><label>العنوان</label><input id="uTitle"></div>
+<div><label>الصورة الرئيسية</label><input id="uImage" placeholder="رابط الصورة"></div>
+<div class="full"><label>الشرح</label><textarea id="uIntro"></textarea></div>
+<div><label>صور إضافية</label><textarea id="uGallery" placeholder="كل رابط صورة في سطر"></textarea></div>
+<div><label>فيديوهات YouTube</label><textarea id="uVideos" placeholder="كل رابط فيديو في سطر"></textarea></div>
+</div>
+</section>
+
+<section class="card">
+<h2 class="gold">شرح الحج</h2>
+<div class="grid">
+<div><label>العنوان</label><input id="hTitle"></div>
+<div><label>الصورة الرئيسية</label><input id="hImage" placeholder="رابط الصورة"></div>
+<div class="full"><label>الشرح</label><textarea id="hIntro"></textarea></div>
+<div><label>صور إضافية</label><textarea id="hGallery" placeholder="كل رابط صورة في سطر"></textarea></div>
+<div><label>فيديوهات YouTube</label><textarea id="hVideos" placeholder="كل رابط فيديو في سطر"></textarea></div>
+</div>
+</section>
+
+<section class="card">
+<div class="actions" style="justify-content:space-between;align-items:center">
+<h2 class="gold" style="margin:0">رحلاتنا السابقة</h2>
+<button class="btn soft" type="button" id="addTrip">+ إضافة رحلة</button>
+</div>
+<div id="trips"></div>
+</section>
+
+<section class="card">
+<h2 class="gold">حفظ التعديلات</h2>
+<label>GitHub Token</label>
+<input id="token" type="password" autocomplete="off" placeholder="يُستخدم للحفظ فقط ولا يتم تخزينه">
+<div class="actions" style="margin-top:16px">
+<button class="btn primary" id="save" type="button">حفظ ونشر المحتوى في الفرع التجريبي</button>
+<a class="btn dark" href="umrah-trips.html" target="_blank" style="text-decoration:none">معاينة صفحة العمرة</a>
+<span class="status" id="status"></span>
+</div>
+</section>
+</main>
+
+<script>
+const REPO="safiralharamain-gif/autopost-safir-updates";
+const BRANCH="safir-website-migration";
+const FILE="site-content.json";
+let data={umrahGuide:{},hajjGuide:{},previousTrips:[]};
+
+function lines(v){return String(v||"").split(/\n+/).map(x=>x.trim()).filter(Boolean)}
+function val(id){return document.getElementById(id).value.trim()}
+function setVal(id,v){document.getElementById(id).value=v||""}
+
+async function load(){
+  try{
+    const r=await fetch("./site-content.json?ts="+Date.now(),{cache:"no-store"});
+    if(!r.ok) throw new Error();
+    data=await r.json();
+  }catch(e){}
+  setVal("uTitle",data.umrahGuide?.title); setVal("uIntro",data.umrahGuide?.intro); setVal("uImage",data.umrahGuide?.image);
+  setVal("uGallery",(data.umrahGuide?.gallery||[]).join("\n")); setVal("uVideos",(data.umrahGuide?.videos||[]).join("\n"));
+  setVal("hTitle",data.hajjGuide?.title); setVal("hIntro",data.hajjGuide?.intro); setVal("hImage",data.hajjGuide?.image);
+  setVal("hGallery",(data.hajjGuide?.gallery||[]).join("\n")); setVal("hVideos",(data.hajjGuide?.videos||[]).join("\n"));
+  renderTrips();
+}
+
+function renderTrips(){
+  const box=document.getElementById("trips"); box.innerHTML="";
+  (data.previousTrips||[]).forEach((t,i)=>{
+    const el=document.createElement("div"); el.className="trip";
+    el.innerHTML='<div class="grid">'+
+      '<div><label>اسم الرحلة</label><input data-k="title" value="'+esc(t.title||"")+'"></div>'+
+      '<div><label>التاريخ</label><input data-k="date" value="'+esc(t.date||"")+'" placeholder="مثال: 2-9"></div>'+
+      '<div class="full"><label>وصف الرحلة</label><textarea data-k="description">'+esc(t.description||"")+'</textarea></div>'+
+      '<div><label>صورة الغلاف</label><input data-k="cover" value="'+esc(t.cover||"")+'"></div>'+
+      '<div><label>صور الرحلة</label><textarea data-k="gallery">'+esc((t.gallery||[]).join("\n"))+'</textarea></div>'+
+      '<div class="full"><label>فيديوهات YouTube</label><textarea data-k="videos">'+esc((t.videos||[]).join("\n"))+'</textarea></div>'+
+      '</div><button class="btn danger" type="button" data-remove="'+i+'">حذف الرحلة</button>';
+    el.querySelectorAll("[data-k]").forEach(inp=>inp.addEventListener("input",()=>{
+      const k=inp.dataset.k;
+      data.previousTrips[i][k]=(k==="gallery"||k==="videos")?lines(inp.value):inp.value;
+    }));
+    el.querySelector("[data-remove]").onclick=()=>{data.previousTrips.splice(i,1);renderTrips()};
+    box.appendChild(el);
+  });
+  if(!(data.previousTrips||[]).length) box.innerHTML='<p>لا توجد رحلات سابقة بعد. اضغط «إضافة رحلة».</p>';
+}
+function esc(s){return String(s).replace(/&/g,"&amp;").replace(/"/g,"&quot;").replace(/</g,"&lt;").replace(/>/g,"&gt;")}
+document.getElementById("addTrip").onclick=()=>{data.previousTrips=data.previousTrips||[];data.previousTrips.push({title:"رحلة جديدة",date:"",description:"",cover:"",gallery:[],videos:[]});renderTrips()};
+
+function collect(){
+  data.umrahGuide={title:val("uTitle"),intro:val("uIntro"),image:val("uImage"),gallery:lines(val("uGallery")),videos:lines(val("uVideos"))};
+  data.hajjGuide={title:val("hTitle"),intro:val("hIntro"),image:val("hImage"),gallery:lines(val("hGallery")),videos:lines(val("hVideos"))};
+  return data;
+}
+function b64(str){return btoa(unescape(encodeURIComponent(str)))}
+
+document.getElementById("save").onclick=async()=>{
+  const token=val("token"), status=document.getElementById("status");
+  if(!token){status.textContent="أدخل GitHub Token للحفظ";return}
+  status.textContent="جارٍ الحفظ...";
+  try{
+    const api="https://api.github.com/repos/"+REPO+"/contents/"+FILE+"?ref="+encodeURIComponent(BRANCH);
+    const headers={"Accept":"application/vnd.github+json","Authorization":"Bearer "+token,"X-GitHub-Api-Version":"2022-11-28"};
+    const current=await fetch(api,{headers});
+    if(!current.ok) throw new Error("تعذر قراءة الملف من GitHub");
+    const meta=await current.json();
+    const body={message:"Update Umrah website content from admin",content:b64(JSON.stringify(collect(),null,2)),sha:meta.sha,branch:BRANCH};
+    const saved=await fetch("https://api.github.com/repos/"+REPO+"/contents/"+FILE,{method:"PUT",headers:{...headers,"Content-Type":"application/json"},body:JSON.stringify(body)});
+    if(!saved.ok){const e=await saved.json();throw new Error(e.message||"فشل الحفظ")}
+    status.textContent="تم الحفظ بنجاح ✓";
+    document.getElementById("token").value="";
+  }catch(e){status.textContent="خطأ: "+e.message}
+};
+
+load();
+</script>
+</body>
+</html>
