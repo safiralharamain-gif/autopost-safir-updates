@@ -1,0 +1,71 @@
+<!DOCTYPE html>
+<html lang="ar">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="theme-color" content="#fff">
+  <link rel="shortcut icon" href="./img/favicon.ico" />
+  <title>404 - الصفحة غير موجودة</title>
+  <style>
+    @font-face {
+      font-family: 'Shamel-bold';
+      src: url('../fonts/Shamel-Bold.ttf');
+      font-display: auto;
+    }
+
+    @font-face {
+      font-family: 'Shamel-thin';
+      src: url('../fonts/Shamel-thin.ttf');
+      font-display: auto;
+    }
+
+    :root {
+      --primary: #22282c;
+      --secondary: #be944a;
+    }
+
+    html {
+      direction: rtl;
+      text-align: right;
+      scroll-behavior: smooth;
+    }
+
+    body {
+      font-family: 'Shamel-bold';
+      color: var(--primary) !important;
+      text-align: center;
+      height: 100vh;
+      margin: 0;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .redirect {
+      display: inline-block;
+      color: #fff;
+      background-color: var(--secondary);
+      text-decoration: none;
+      border-radius: 35px;
+      padding: 16px 35px 13px 35px;
+      cursor: pointer;
+    }
+
+    .not-found {
+      @media (min-width: 576px) {
+        font-size: 1.2rem
+      }
+    }
+  </style>
+</head>
+
+<body>
+  <div style="width: 450px; padding-left: 20px; padding-right: 20px;">
+    <img src="./img/404.svg" width="90%" alt="404-photo">
+    <p class="not-found">عفواً ! الصفحة التي تبحث عنها غير موجودة</p>
+    <a href="/" class="redirect">العودة للصفحة الرئيسية</a>
+  </div>
+</body>
+
+</html>

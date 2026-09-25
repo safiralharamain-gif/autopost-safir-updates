@@ -1,0 +1,114 @@
+.hidden { display: none }
+.show { display: blcok }
+
+.call-us {
+  position: fixed;
+  width: 60px;
+  height: 125px;
+  right: 50px;
+  bottom: 213px;
+  z-index: 1490;
+  transition: .3s all ease-in-out;
+  transform: translateY(59%);
+}
+
+.call-us .call, .call-us .whats, .call-us .share-icon {
+  width: 60px;
+  height: 60px;
+  background-color: #fff;
+  border-radius: 50%;
+  text-align: center;
+  box-shadow: 0 0 15px #69778452;
+  cursor: pointer;
+}
+
+.call {
+  background: url(../img/icons/phone.svg) no-repeat center center/60%;
+  transition: .3s all ease-in-out;
+}
+
+.share-icon {
+  background: url(../img/icons/share.svg) no-repeat center center/70%;
+  transition: .3s all ease-in-out;
+}
+
+.close-icon {
+  background: url(../img/icons/close-icon-gold.svg) no-repeat center center/60%;
+}
+
+.call-us .whats img {
+  width: 60%;
+  margin-top: 12px;
+}
+
+.calls-company, .social-media {
+  position: absolute;
+  right: 75px;
+}
+.calls-company {
+  top: -36px;
+}
+.social-media {
+  top: -135px;
+}
+
+.calls-company .company-item,
+.social-media .social-item {
+  height: 40px;
+  background-color: #fff;
+  border-radius: 20px;
+  text-align: center;
+  box-shadow: 0 0 15px #69778452;
+  cursor: pointer;
+  user-select: none;
+}
+
+.calls-company .company-item {
+  width: 120px;
+  padding: 12px 0px 8px 0px;
+}
+
+.social-media .social-item {
+  width: 130px;
+}
+
+.facebook, .x, .whatsapp {
+  font-family: Arial, Helvetica, sans-serif;
+}
+
+@media (max-width: 820px) {
+  .call-us {
+    right: 30px;
+    bottom: 120px;
+  }
+  .call-us .call, .call-us .whats, .call-us .share-icon {
+    width: 40px;
+    height: 40px;
+  }
+  .call-us .call img, .call-us .whats img {
+    margin-top: 8px;
+  }
+  .calls-company, .social-media {
+    right: 55px;
+  }
+  .calls-company .company-item {
+    width: 100px;
+    height: 35px;
+    font-size: 14px;
+    padding: 10px 0px 12px 0px;
+  }
+  .social-media {
+    top: -125px;
+  }
+
+  .social-media .social-item {
+    width: 120px;
+    height: 35px;
+    font-size: 14px !important;
+    padding: 15px 0px 15px 0px !important;
+  }
+
+  .social-media .social-item .copy-link span {
+    font-size: 14px !important;
+  }
+}
