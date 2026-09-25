@@ -1,0 +1,17 @@
+{
+  "umrahGuide": {
+    "title": "شرح العمرة",
+    "intro": "دليل مبسط يساعدك على الاستعداد للعمرة وفهم مراحل الرحلة من الإحرام وحتى إتمام المناسك، مع إمكانية إضافة الصور وفيديوهات الشرح من سفير الحرمين.",
+    "image": "https://safiralharamain.com/img/umrah-trips.png",
+    "gallery": [],
+    "videos": []
+  },
+  "hajjGuide": {
+    "title": "شرح الحج",
+    "intro": "قسم مخصص لشرح رحلة الحج ومراحل البرنامج والاستعدادات المهمة، ويمكن تحديثه بالصور وفيديوهات الشرح من الإدارة.",
+    "image": "https://safiralharamain.com/img/hajj-large.png",
+    "gallery": [],
+    "videos": []
+  },
+  "previousTrips": []
+}
