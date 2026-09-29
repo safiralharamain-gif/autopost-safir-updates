@@ -1,13 +1,13 @@
 {
   "name": "safir-ai-video-studio",
-  "version": "2.3.1",
+  "version": "2.4.0",
   "description": "سفير الفيديو الذكي - محرر فيديو آلي بدون Timeline",
   "main": "app/main.js",
   "author": "Safir Al-Haramain",
   "license": "UNLICENSED",
   "scripts": {
     "start": "electron .",
-    "check": "node --check app/main.js && node --check app/preload.js && node --check app/engine.js && node --check app/renderer.js && node --check app/timeline.js",
+    "check": "node --check app/main.js && node --check app/preload.js && node --check app/engine.js && node --check app/renderer.js && node --check app/timeline.js && node --check app/simple.js",
     "pack:win": "electron-builder --win portable"
   },
   "dependencies": {
