@@ -1,0 +1,44 @@
+name: Publish SAFIR Video Release
+
+on:
+  push:
+    branches:
+      - build/safir-video-portable-v3
+    paths:
+      - '.github/workflows/publish-safir-video.yml'
+  workflow_dispatch:
+
+permissions:
+  actions: read
+  contents: write
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Download tested Windows artifact
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          mkdir release-files
+          gh run download 36552299498             --repo safiralharamain-gif/autopost-safir-updates             --name safir-video-portable-windows             --dir release-files
+          ls -lah release-files
+
+      - name: Prepare stable English asset name
+        shell: bash
+        run: |
+          EXE=$(find release-files -maxdepth 1 -type f -iname "*.exe" | head -n 1)
+          if [ -z "$EXE" ]; then
+            echo "No EXE found"
+            exit 1
+          fi
+          cp "$EXE" release-files/SAFIR_VIDEO_AI_WINDOWS.exe
+          sha256sum release-files/SAFIR_VIDEO_AI_WINDOWS.exe > release-files/SHA256.txt
+
+      - name: Publish GitHub Release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          TAG="safir-video-ai-v2.2.0"
+          gh release delete "$TAG" --repo safiralharamain-gif/autopost-safir-updates --cleanup-tag -y || true
+          gh release create "$TAG"             release-files/SAFIR_VIDEO_AI_WINDOWS.exe             release-files/SHA256.txt             --repo safiralharamain-gif/autopost-safir-updates             --title "سفير الفيديو الذكي v2.2.0"             --notes "نسخة Windows Portable. تشمل معاينة Reels 9:16، محرك Whisper عربي محلي، كابشن عربي، Auto Cuts، وتراكات V1/V2/A1."
