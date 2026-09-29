@@ -2,7 +2,7 @@ const fs = require('fs');
 const renderer = fs.readFileSync('app/renderer.js','utf8');
 const preload = fs.readFileSync('app/preload.js','utf8');
 
-if (/\$\('\.format'\)\.forEach/.test(renderer)) {
+if (/(^|[^$])\$\('\.format'\)\.forEach/m.test(renderer)) {
   throw new Error("Broken selector found: $('.format').forEach blocks renderer startup");
 }
 if (!renderer.includes("$('#pickVideo').onclick=chooseVideo")) {
