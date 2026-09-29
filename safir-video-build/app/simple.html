@@ -1,0 +1,64 @@
+<!doctype html>
+<html lang="ar" dir="rtl">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>سفير الفيديو</title>
+  <link rel="stylesheet" href="simple.css">
+</head>
+<body>
+  <main class="shell">
+    <header>
+      <div class="brand">س</div>
+      <div>
+        <h1>سفير الفيديو</h1>
+        <p>ارفع الفيديو… واستلمه جاهز.</p>
+      </div>
+    </header>
+
+    <section class="card">
+      <div id="dropZone" class="drop">
+        <div class="plus">＋</div>
+        <h2>اختار الفيديو الخام</h2>
+        <p>البرنامج هيقص السكوت واللخبطة بدقة، يضيف انتقالات خفيفة، ويكتب الكلام بالعربي.</p>
+        <button id="pickVideo" class="primary">اختيار فيديو</button>
+      </div>
+
+      <div id="work" class="work hidden">
+        <div class="video-box">
+          <video id="preview" controls></video>
+          <div class="file-name" id="fileName"></div>
+        </div>
+
+        <div class="promise-grid">
+          <div><b>✂</b><span>قص دقيق</span><small>سكوت + تكرار + كلمات حشو</small></div>
+          <div><b>◫</b><span>انتقالات هادئة</span><small>Dissolve خفيف بين القصات</small></div>
+          <div><b>ع</b><span>كابشن عربي</span><small>FF Shamel Family</small></div>
+        </div>
+
+        <button id="processBtn" class="primary big">جهّز الفيديو</button>
+
+        <div id="progressWrap" class="progress-wrap hidden">
+          <div class="progress-head"><span id="progressText">جاري التجهيز...</span><strong id="progressPercent">0%</strong></div>
+          <div class="progress"><i id="progressBar"></i></div>
+        </div>
+      </div>
+    </section>
+
+    <section id="done" class="card done hidden">
+      <div class="ok">✓</div>
+      <div>
+        <h2>الفيديو جاهز</h2>
+        <p id="doneText"></p>
+      </div>
+      <div class="done-actions">
+        <button id="openFolder" class="secondary">فتح مكان الفيديو</button>
+        <button id="newVideo" class="primary">فيديو جديد</button>
+      </div>
+    </section>
+
+    <div id="error" class="error hidden"></div>
+  </main>
+  <script src="simple.js"></script>
+</body>
+</html>
