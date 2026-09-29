@@ -16,6 +16,7 @@ function updatePreviewFormat(){
     el.classList.remove('format-9-16','format-16-9','format-1-1');
     el.classList.add(cls);
   }
+  window.safirTimeline?.setFormat?.(state.format);
 }
 $('.format').forEach(b=>b.onclick=()=>{
   $('.format').forEach(x=>x.classList.remove('active'));
