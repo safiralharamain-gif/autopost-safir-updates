@@ -2,6 +2,8 @@ const { contextBridge, ipcRenderer } = require('electron');
 
 contextBridge.exposeInMainWorld('safir', {
   pickVideo: () => ipcRenderer.invoke('pick-video'),
+  pickMedia: (kind) => ipcRenderer.invoke('pick-media', kind),
+  probeMedia: (filePath) => ipcRenderer.invoke('probe-media', filePath),
   pickBroll: () => ipcRenderer.invoke('pick-broll'),
   pickLogo: () => ipcRenderer.invoke('pick-logo'),
   pickFolder: () => ipcRenderer.invoke('pick-folder'),
