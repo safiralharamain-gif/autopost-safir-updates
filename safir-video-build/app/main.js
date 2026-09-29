@@ -20,7 +20,7 @@ function createWindow() {
     }
   });
   mainWindow.removeMenu();
-  mainWindow.loadFile(path.join(__dirname, 'index.html'));
+  mainWindow.loadFile(path.join(__dirname, 'simple.html'));
 }
 
 app.whenReady().then(() => {
@@ -95,6 +95,9 @@ ipcMain.handle('analyze-video', async (event, payload) => {
 });
 ipcMain.handle('render-video', async (event, payload) => {
   return engine.renderVideo(payload, (msg) => event.sender.send('engine-progress', msg));
+});
+ipcMain.handle('simple-process', async (event, payload) => {
+  return engine.processSimpleVideo(payload.video, (msg) => event.sender.send('engine-progress', msg));
 });
 ipcMain.handle('create-reels', async (event, payload) => {
   return engine.createReels(payload, (msg) => event.sender.send('engine-progress', msg));
