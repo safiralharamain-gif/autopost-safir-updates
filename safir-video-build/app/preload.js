@@ -11,6 +11,7 @@ contextBridge.exposeInMainWorld('safir', {
   pickExport: (name) => ipcRenderer.invoke('pick-export', name),
   analyzeVideo: (payload) => ipcRenderer.invoke('analyze-video', payload),
   renderVideo: (payload) => ipcRenderer.invoke('render-video', payload),
+  simpleProcess: (payload) => ipcRenderer.invoke('simple-process', payload),
   createReels: (payload) => ipcRenderer.invoke('create-reels', payload),
   saveProject: (payload) => ipcRenderer.invoke('save-project', payload),
   openProject: () => ipcRenderer.invoke('open-project'),
