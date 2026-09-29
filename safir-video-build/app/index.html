@@ -190,6 +190,10 @@
                 <div class="track-label"><b>A1</b><span>صوت / موسيقى</span></div>
                 <div id="tlAudioTrack" class="track-body audio-track"></div>
               </div>
+              <div class="track-row">
+                <div class="track-label"><b>T1</b><span>كابشن كلمة بكلمة</span></div>
+                <div id="tlCaptionTrack" class="track-body caption-track"></div>
+              </div>
               <div id="tlPlayhead" class="timeline-playhead"></div>
             </section>
 
@@ -204,7 +208,19 @@
       <section id="brandView" class="view">
         <div class="page-title"><div><div class="eyebrow">BRAND KIT</div><h2>هوية تظهر تلقائيًا على كل فيديو</h2></div></div>
         <div class="brand-grid">
-          <div class="card form-card"><label>اللوجو</label><div class="file-row"><input id="logoPath" readonly placeholder="لم يتم اختيار لوجو"><button id="pickLogo" class="secondary">اختيار</button></div><label>خط الكابتشن</label><input id="fontName" value="FF Shamel Family"><label>حجم الكابتشن</label><input id="captionSize" type="range" min="46" max="110" value="74"><div class="range-value"><span>صغير</span><b id="captionSizeValue">74</b><span>كبير</span></div></div>
+          <div class="card form-card">
+            <label>اللوجو</label>
+            <div class="file-row"><input id="logoPath" readonly placeholder="لم يتم اختيار لوجو"><button id="pickLogo" class="secondary">اختيار</button></div>
+            <label>خط الكابتشن</label><input id="fontName" value="FF Shamel Family">
+            <label>طريقة الكابتشن</label>
+            <select id="captionMode"><option value="word">كلمة بكلمة + Highlight</option><option value="sentence">جملة كاملة</option></select>
+            <label>عدد الكلمات الظاهرة</label>
+            <select id="captionWords"><option value="3">3 كلمات</option><option value="4" selected>4 كلمات</option><option value="5">5 كلمات</option><option value="6">6 كلمات</option></select>
+            <label>لون الكلمة الحالية</label>
+            <input id="captionHighlight" type="color" value="#E4B75D">
+            <label>حجم الكابتشن</label><input id="captionSize" type="range" min="46" max="110" value="74">
+            <div class="range-value"><span>صغير</span><b id="captionSizeValue">74</b><span>كبير</span></div>
+          </div>
           <div class="card brand-preview"><div class="fake-reel"><div class="logo-chip">سفير الحرمين</div><div class="caption-demo">رحلة <mark>تليق</mark> بمقامك</div><div class="safe-zone"></div></div><p>معاينة تقريبية لمكان اللوجو والكابتشن.</p></div>
         </div>
       </section>
