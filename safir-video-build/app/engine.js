@@ -48,6 +48,12 @@ async function probe(video) {
   };
 }
 
+async function probeMedia(file) {
+  if (!file || !fs.existsSync(file)) throw new Error('ملف الوسائط غير موجود');
+  if (/\.(jpg|jpeg|png|webp)$/i.test(file)) return {duration:5,width:0,height:0,hasAudio:false,isImage:true};
+  return probe(file);
+}
+
 async function detectSilence(video,duration,cb) {
   notify(cb,'silence',14,'اكتشاف السكوت والوقفات...');
   const args=['-hide_banner','-i',video,'-af','silencedetect=noise=-34dB:d=0.48','-f','null','-'];
@@ -151,6 +157,18 @@ function cropFor(meta,format,zoom=1){
 }
 
 function buildPlan(analysis,settings={}){
+  const manual=settings.manualTimeline;
+  if(manual?.videoClips?.length){
+    let t=0;
+    const clips=manual.videoClips
+      .filter(c=>c&&Number(c.end)>Number(c.start))
+      .map((c,i)=>{
+        const dur=Number(c.end)-Number(c.start);
+        const item={source:c.source||analysis.video,start:Number(c.start),end:Number(c.end),index:i,zoom:1,outputStart:t,outputEnd:t+dur};
+        t+=dur;return item;
+      });
+    return{clips,duration:t,manual:true,broll:manual.broll||[],audio:manual.audio||[]};
+  }
   const duration=analysis.meta.duration;
   const start=Math.max(0,Number(settings.rangeStart??0));
   const end=Math.min(duration,Number(settings.rangeEnd??duration));
@@ -161,12 +179,57 @@ function buildPlan(analysis,settings={}){
   clips=clips.map((c,i)=>{
     const dur=c.end-c.start;
     const zoom=settings.autoZoom&&i%3===1?1.035:1;
-    const item={...c,index:i,zoom,outputStart:t,outputEnd:t+dur};t+=dur;return item;
+    const item={source:analysis.video,...c,index:i,zoom,outputStart:t,outputEnd:t+dur};t+=dur;return item;
   });
-  return{clips,duration:t};
+  return{clips,duration:t,manual:false,broll:[],audio:[]};
 }
 
 function concatEscape(p){return p.replace(/'/g,"'\\''");}
+
+async function applyBroll(base,items,target,totalDuration,temp,settings,cb){
+  let current=base;
+  for(let i=0;i<(items||[]).length;i++){
+    const x=items[i];
+    if(!x?.source||!fs.existsSync(x.source))continue;
+    const start=Math.max(0,Number(x.timelineStart||0));
+    const dur=Math.max(.12,Number(x.end||0)-Number(x.start||0));
+    if(start>=totalDuration)continue;
+    const end=Math.min(totalDuration,start+dur);
+    const realDur=end-start;
+    const out=path.join(temp,`broll-${String(i).padStart(3,'0')}.mp4`);
+    const args=['-y','-hide_banner','-i',current];
+    const isImage=!!x.isImage||/\.(jpg|jpeg|png|webp)$/i.test(x.source);
+    if(isImage) args.push('-loop','1','-framerate','30','-i',x.source);
+    else args.push('-ss',Number(x.start||0).toFixed(3),'-t',realDur.toFixed(3),'-i',x.source);
+    const fc=`[1:v]scale=${target.w}:${target.h}:force_original_aspect_ratio=increase,crop=${target.w}:${target.h},setsar=1,setpts=PTS-STARTPTS+${start.toFixed(3)}/TB[ov];[0:v][ov]overlay=0:0:eof_action=pass:enable='between(t,${start.toFixed(3)},${end.toFixed(3)})'[v]`;
+    args.push('-filter_complex',fc,'-map','[v]','-map','0:a?','-c:v','libx264','-preset',settings.quality==='fast'?'veryfast':'medium','-crf','19','-pix_fmt','yuv420p','-c:a','copy','-t',totalDuration.toFixed(3),'-movflags','+faststart',out);
+    notify(cb,'broll',84+Math.min(5,4*i/Math.max(1,items.length)),`تركيب B-roll ${i+1}`);
+    await run(bin('ffmpeg'),args);
+    current=out;
+  }
+  return current;
+}
+
+async function applyAudio(base,items,totalDuration,temp,cb,hasBaseAudio){
+  let current=base,hasAudio=hasBaseAudio;
+  for(let i=0;i<(items||[]).length;i++){
+    const x=items[i];
+    if(!x?.source||!fs.existsSync(x.source))continue;
+    const at=Math.max(0,Number(x.timelineStart||0));
+    const dur=Math.max(.12,Math.min(totalDuration-at,Number(x.end||0)-Number(x.start||0)));
+    if(dur<=.1||at>=totalDuration)continue;
+    const out=path.join(temp,`audio-${String(i).padStart(3,'0')}.mp4`);
+    const args=['-y','-hide_banner','-i',current,'-ss',Number(x.start||0).toFixed(3),'-t',dur.toFixed(3),'-i',x.source];
+    const delay=Math.max(0,Math.round(at*1000)),vol=Math.max(0,Math.min(2,Number(x.volume??.45)));
+    const baseAudio=hasAudio?'[0:a]':'anullsrc=r=48000:cl=stereo,atrim=0:'+totalDuration.toFixed(3);
+    const fc=`${baseAudio}[basea];[1:a]volume=${vol.toFixed(3)},adelay=${delay}|${delay}[adda];[basea][adda]amix=inputs=2:duration=first:dropout_transition=0[a]`;
+    args.push('-filter_complex',fc,'-map','0:v','-map','[a]','-c:v','copy','-c:a','aac','-b:a','192k','-t',totalDuration.toFixed(3),'-movflags','+faststart',out);
+    notify(cb,'audio',89+Math.min(4,3*i/Math.max(1,items.length)),`خلط الصوت ${i+1}`);
+    await run(bin('ffmpeg'),args);
+    current=out;hasAudio=true;
+  }
+  return{file:current,hasAudio};
+}
 
 async function renderVideo(payload,cb){
   const {analysis,settings={},output}=payload;
@@ -180,11 +243,13 @@ async function renderVideo(payload,cb){
     const parts=[];
     for(let i=0;i<plan.clips.length;i++){
       const c=plan.clips[i];
+      const source=c.source||analysis.video;
+      if(!fs.existsSync(source)) throw new Error('ملف مقطع غير موجود: '+source);
       const crop=cropFor(analysis.meta,settings.format||'9:16',c.zoom);
       const out=path.join(temp,`clip-${String(i).padStart(4,'0')}.mp4`);
       const dur=Math.max(.06,c.end-c.start);
       const vf=`crop=${crop.cw}:${crop.ch}:${crop.x}:${crop.y},scale=${crop.w}:${crop.h}:flags=lanczos,setsar=1,fps=30`;
-      const args=['-y','-hide_banner','-ss',c.start.toFixed(3),'-i',analysis.video,'-t',dur.toFixed(3),'-vf',vf,
+      const args=['-y','-hide_banner','-ss',c.start.toFixed(3),'-i',source,'-t',dur.toFixed(3),'-vf',vf,
         '-c:v','libx264','-preset',settings.quality==='fast'?'veryfast':'medium','-crf',settings.quality==='high'?'18':'20','-pix_fmt','yuv420p'];
       if(analysis.meta.hasAudio)args.push('-c:a','aac','-b:a','192k','-ar','48000','-ac','2');
       else args.push('-an');
@@ -208,18 +273,27 @@ async function renderVideo(payload,cb){
       await run(bin('ffmpeg'),a);
     }
 
+    const target=outputSize(settings.format||'9:16');
+    let working=combined;
+    if(plan.manual&&plan.broll?.length) working=await applyBroll(working,plan.broll,target,plan.duration,temp,settings,cb);
+    let hasAudio=analysis.meta.hasAudio;
+    if(plan.manual&&plan.audio?.length){
+      const mixed=await applyAudio(working,plan.audio,plan.duration,temp,cb,hasAudio);
+      working=mixed.file;hasAudio=mixed.hasAudio;
+    }
+
     const logo=settings.logo&&fs.existsSync(settings.logo)?settings.logo:null;
-    const clean=analysis.meta.hasAudio&&settings.cleanAudio!==false;
+    const clean=hasAudio&&settings.cleanAudio!==false;
     if(!logo&&!clean){
-      fs.copyFileSync(combined,output);
+      fs.copyFileSync(working,output);
     }else{
-      notify(cb,'finish',90,'تحسين الصوت وإضافة الهوية...');
-      const args=['-y','-hide_banner','-i',combined];
+      notify(cb,'finish',94,'تحسين الصوت وإضافة الهوية...');
+      const args=['-y','-hide_banner','-i',working];
       if(logo)args.push('-loop','1','-i',logo);
       if(logo){
         args.push('-filter_complex','[1:v]scale=150:-1[lg];[0:v][lg]overlay=W-w-38:38:format=auto[v]','-map','[v]');
       }else args.push('-map','0:v');
-      if(analysis.meta.hasAudio){
+      if(hasAudio){
         args.push('-map','0:a?');
         if(clean)args.push('-af','highpass=f=75,lowpass=f=15500,afftdn=nf=-25,loudnorm=I=-16:LRA=11:TP=-1.5','-c:a','aac','-b:a','192k');
         else args.push('-c:a','copy');
@@ -258,4 +332,4 @@ async function createReels(payload,cb){
   return outputs;
 }
 
-module.exports={analyzeVideo,renderVideo,createReels,buildPlan,mergeIntervals};
+module.exports={analyzeVideo,renderVideo,createReels,buildPlan,mergeIntervals,probeMedia};
