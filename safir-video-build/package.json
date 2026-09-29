@@ -1,6 +1,6 @@
 {
   "name": "safir-ai-video-studio",
-  "version": "2.1.0",
+  "version": "2.3.0",
   "description": "سفير الفيديو الذكي - محرر فيديو آلي بدون Timeline",
   "main": "app/main.js",
   "author": "Safir Al-Haramain",
