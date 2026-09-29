@@ -4,7 +4,7 @@
   <meta charset="utf-8"/>
   <meta name="viewport" content="width=device-width,initial-scale=1"/>
   <title>سفير الفيديو الذكي</title>
-  <link rel="stylesheet" href="styles.css"/>
+  <link rel="stylesheet" href="styles.css"/>\n  <link rel="stylesheet" href="timeline.css"/>
 </head>
 <body>
   <div class="app-shell">
@@ -15,6 +15,7 @@
       </div>
       <nav>
         <button class="nav active" data-view="studio"><span>✦</span> الاستوديو الذكي</button>
+        <button class="nav" data-view="timeline"><span>▤</span> المونتاج اليدوي</button>
         <button class="nav" data-view="brand"><span>◆</span> الهوية والقوالب</button>
         <button class="nav" data-view="library"><span>▣</span> مكتبة B‑roll</button>
       </nav>
@@ -127,6 +128,79 @@
         </section>
       </section>
 
+      <section id="timelineView" class="view">
+        <div class="timeline-page">
+          <div class="page-title timeline-title">
+            <div><div class="eyebrow">MANUAL TRACK EDITOR</div><h2>كمّل بإيدك بعد شغل الذكاء الاصطناعي</h2><p>قصّ، قسّم، رتّب، واحذف وأضف B‑roll وصوت — بدون ما تلغي نتيجة الـAuto.</p></div>
+            <div class="timeline-top-actions">
+              <button id="timelineResetAuto" class="secondary">إعادة بناء من Auto</button>
+              <button id="timelineExport" class="primary" disabled>تصدير تعديلات التراكات</button>
+            </div>
+          </div>
+
+          <div id="timelineEmpty" class="card timeline-empty">
+            <div class="upload-icon">▤</div>
+            <h3>حلّل الفيديو الأول</h3>
+            <p>بعد التحليل هيتحوّل الناتج الأوتوماتيك تلقائيًا لمقاطع قابلة للتعديل هنا.</p>
+          </div>
+
+          <div id="timelineWorkspace" class="timeline-workspace hidden">
+            <section class="timeline-preview card">
+              <div class="manual-preview-wrap"><video id="timelinePreview" controls></video></div>
+              <div class="transport">
+                <button id="tlPrev" class="mini">◀ مقطع</button>
+                <button id="tlPlay" class="secondary">تشغيل / إيقاف</button>
+                <button id="tlNext" class="mini">مقطع ▶</button>
+                <span id="tlTime">0:00 / 0:00</span>
+              </div>
+              <input id="tlCursor" class="timeline-cursor" type="range" min="0" max="1" step="0.01" value="0">
+            </section>
+
+            <section class="timeline-toolbar card">
+              <div class="toolbar-group">
+                <b>المقطع المحدد</b>
+                <button id="tlSplit" class="secondary">✂ تقسيم عند المؤشر</button>
+                <button id="tlDelete" class="danger">حذف</button>
+                <button id="tlLeft" class="mini">تحريك قبله</button>
+                <button id="tlRight" class="mini">تحريك بعده</button>
+              </div>
+              <div class="toolbar-group">
+                <b>إضافة</b>
+                <button id="tlAddBroll" class="secondary">＋ B‑roll / صورة</button>
+                <button id="tlAddAudio" class="secondary">＋ صوت / موسيقى</button>
+              </div>
+              <div class="toolbar-group">
+                <b>المؤشر</b>
+                <span id="tlCursorLabel" class="pill gold">0:00</span>
+                <small>الإضافات الجديدة تدخل عند موضع المؤشر.</small>
+              </div>
+            </section>
+
+            <section class="timeline-editor card">
+              <div class="ruler-wrap"><div class="track-label">الوقت</div><div id="tlRuler" class="ruler"></div></div>
+              <div class="track-row main-track-row">
+                <div class="track-label"><b>V1</b><span>الفيديو الرئيسي</span></div>
+                <div id="tlVideoTrack" class="track-body video-track"></div>
+              </div>
+              <div class="track-row">
+                <div class="track-label"><b>V2</b><span>B‑roll / صور</span></div>
+                <div id="tlBrollTrack" class="track-body overlay-track"></div>
+              </div>
+              <div class="track-row">
+                <div class="track-label"><b>A1</b><span>صوت / موسيقى</span></div>
+                <div id="tlAudioTrack" class="track-body audio-track"></div>
+              </div>
+              <div id="tlPlayhead" class="timeline-playhead"></div>
+            </section>
+
+            <section class="timeline-inspector card">
+              <div><div class="eyebrow">INSPECTOR</div><h3 id="tlInspectorTitle">اختر مقطعًا</h3></div>
+              <div id="tlInspectorBody" class="inspector-body empty-state">اضغط على أي مقطع في التراكات لتعديل تفاصيله.</div>
+            </section>
+          </div>
+        </div>
+      </section>
+
       <section id="brandView" class="view">
         <div class="page-title"><div><div class="eyebrow">BRAND KIT</div><h2>هوية تظهر تلقائيًا على كل فيديو</h2></div></div>
         <div class="brand-grid">
@@ -142,6 +216,6 @@
     </main>
   </div>
   <div id="toast" class="toast"></div>
-  <script src="renderer.js"></script>
+  <script src="renderer.js"></script>\n  <script src="timeline.js"></script>
 </body>
 </html>
