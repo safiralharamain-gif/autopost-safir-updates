@@ -1,0 +1,21 @@
+{
+  "appId": "com.safir.video.ai",
+  "productName": "سفير الفيديو الذكي",
+  "files": [
+    "app/**/*",
+    "assets/**/*",
+    "package.json"
+  ],
+  "asar": true,
+  "asarUnpack": [
+    "node_modules/ffmpeg-static/**/*",
+    "node_modules/ffprobe-static/**/*"
+  ],
+  "win": {
+    "target": "dir"
+  },
+  "compression": "maximum",
+  "directories": {
+    "output": "dist-modular"
+  }
+}
