@@ -9,6 +9,11 @@ on:
       - '.github/workflows/build-safir-video-portable.yml'
   workflow_dispatch:
 
+
+concurrency:
+  group: safir-video-portable-build
+  cancel-in-progress: true
+
 jobs:
   build-windows:
     runs-on: windows-latest
