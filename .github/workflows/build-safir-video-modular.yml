@@ -36,6 +36,7 @@ jobs:
         run: |
           npm run check
           node tests/import-wiring-smoke.js
+          node tests/simple-workflow-wiring.js
 
       - name: Build Arabic AI pack
         shell: pwsh
@@ -104,17 +105,17 @@ jobs:
           It replaces only resources\app.asar.
           "@ | Set-Content -Encoding UTF8 release/patch/README_PATCH.txt
 
-          Compress-Archive -Path release/core/* -DestinationPath SAFIR_VIDEO_CORE_v2.3.1.zip -Force
+          Compress-Archive -Path release/core/* -DestinationPath SAFIR_VIDEO_CORE_v2.4.0.zip -Force
           Compress-Archive -Path release/ai/* -DestinationPath SAFIR_ARABIC_AI_PACK.zip -Force
-          Compress-Archive -Path release/patch/* -DestinationPath SAFIR_PATCH_v2.3.1.zip -Force
+          Compress-Archive -Path release/patch/* -DestinationPath SAFIR_PATCH_v2.4.0.zip -Force
 
-          Get-Item SAFIR_VIDEO_CORE_v2.3.1.zip,SAFIR_ARABIC_AI_PACK.zip,SAFIR_PATCH_v2.3.1.zip | Select-Object Name,Length
+          Get-Item SAFIR_VIDEO_CORE_v2.4.0.zip,SAFIR_ARABIC_AI_PACK.zip,SAFIR_PATCH_v2.4.0.zip | Select-Object Name,Length
 
       - name: Upload core
         uses: actions/upload-artifact@v4
         with:
           name: safir-video-core
-          path: SAFIR_VIDEO_CORE_v2.3.1.zip
+          path: SAFIR_VIDEO_CORE_v2.4.0.zip
           retention-days: 14
 
       - name: Upload AI pack
@@ -128,5 +129,5 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: safir-video-patch
-          path: SAFIR_PATCH_v2.3.1.zip
+          path: SAFIR_PATCH_v2.4.0.zip
           retention-days: 14
