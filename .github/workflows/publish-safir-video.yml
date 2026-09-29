@@ -21,7 +21,7 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: |
           mkdir release-files
-          gh run download 36552299498             --repo safiralharamain-gif/autopost-safir-updates             --name safir-video-portable-windows             --dir release-files
+          gh run download 36555470832             --repo safiralharamain-gif/autopost-safir-updates             --name safir-video-portable-windows             --dir release-files
           ls -lah release-files
 
       - name: Prepare stable English asset name
@@ -39,6 +39,6 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          TAG="safir-video-ai-v2.2.0"
+          TAG="safir-video-ai-v2.3.0"
           gh release delete "$TAG" --repo safiralharamain-gif/autopost-safir-updates --cleanup-tag -y || true
-          gh release create "$TAG"             release-files/SAFIR_VIDEO_AI_WINDOWS.exe             release-files/SHA256.txt             --repo safiralharamain-gif/autopost-safir-updates             --title "سفير الفيديو الذكي v2.2.0"             --notes "نسخة Windows Portable. تشمل معاينة Reels 9:16، محرك Whisper عربي محلي، كابشن عربي، Auto Cuts، وتراكات V1/V2/A1."
+          gh release create "$TAG"             release-files/SAFIR_VIDEO_AI_WINDOWS.exe             release-files/SHA256.txt             --repo safiralharamain-gif/autopost-safir-updates             --title "سفير الفيديو الذكي v2.3.0"             --notes "نسخة Windows Portable. تشمل Reels 9:16، Whisper عربي محلي، توقيت كل كلمة، Caption Highlight كلمة بكلمة، Auto Cuts، وتراكات V1/V2/A1/T1، ومعاينة الكابشن أثناء التشغيل."
