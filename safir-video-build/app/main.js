@@ -43,6 +43,22 @@ ipcMain.handle('pick-video', async () => {
   return res.canceled ? null : res.filePaths[0];
 });
 
+ipcMain.handle('pick-media', async (_, kind='media') => {
+  const filters = kind === 'audio'
+    ? [{ name: 'Audio', extensions: ['mp3','wav','m4a','aac','flac','ogg'] }]
+    : [{ name: 'Media', extensions: ['mp4','mov','mkv','webm','avi','m4v','jpg','jpeg','png','webp'] }];
+  const res = await dialog.showOpenDialog(mainWindow, {
+    title: kind === 'audio' ? 'اختر ملف صوت أو موسيقى' : 'اختر B-roll أو صورة',
+    properties: ['openFile'],
+    filters
+  });
+  return res.canceled ? null : res.filePaths[0];
+});
+
+ipcMain.handle('probe-media', async (_, filePath) => {
+  return engine.probeMedia(filePath);
+});
+
 ipcMain.handle('pick-broll', async () => {
   const res = await dialog.showOpenDialog(mainWindow, {
     title: 'اختر مكتبة B-roll',
