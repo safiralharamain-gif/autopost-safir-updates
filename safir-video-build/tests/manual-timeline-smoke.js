@@ -38,6 +38,14 @@ function run(args) {
       { start: 0.3, end: 1.4, text: 'اختبار كابشن عربي' },
       { start: 4.2, end: 5.4, text: 'سفير الفيديو الذكي' }
     ],
+    words: [
+      { start: 0.3, end: 0.65, text: 'اختبار' },
+      { start: 0.65, end: 1.0, text: 'كابشن' },
+      { start: 1.0, end: 1.4, text: 'عربي' },
+      { start: 4.2, end: 4.55, text: 'سفير' },
+      { start: 4.55, end: 4.95, text: 'الفيديو' },
+      { start: 4.95, end: 5.4, text: 'الذكي' }
+    ],
     summary: { original: meta.duration, estimated: meta.duration, removed: 0 }
   };
 
@@ -45,6 +53,9 @@ function run(args) {
     format: '1:1',
     cleanAudio: false,
     captions: true,
+    captionMode: 'word',
+    captionWords: 4,
+    captionHighlight: '#E4B75D',
     fontName: 'Arial',
     captionSize: 58,
     quality: 'fast',
