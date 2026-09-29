@@ -221,7 +221,7 @@ async function applyAudio(base,items,totalDuration,temp,cb,hasBaseAudio){
     const out=path.join(temp,`audio-${String(i).padStart(3,'0')}.mp4`);
     const args=['-y','-hide_banner','-i',current,'-ss',Number(x.start||0).toFixed(3),'-t',dur.toFixed(3),'-i',x.source];
     const delay=Math.max(0,Math.round(at*1000)),vol=Math.max(0,Math.min(2,Number(x.volume??.45)));
-    const baseAudio=hasAudio?'[0:a]':'anullsrc=r=48000:cl=stereo,atrim=0:'+totalDuration.toFixed(3);
+    const baseAudio=hasAudio?'[0:a]anull':'anullsrc=r=48000:cl=stereo,atrim=0:'+totalDuration.toFixed(3);
     const fc=`${baseAudio}[basea];[1:a]volume=${vol.toFixed(3)},adelay=${delay}|${delay}[adda];[basea][adda]amix=inputs=2:duration=first:dropout_transition=0[a]`;
     args.push('-filter_complex',fc,'-map','0:v','-map','[a]','-c:v','copy','-c:a','aac','-b:a','192k','-t',totalDuration.toFixed(3),'-movflags','+faststart',out);
     notify(cb,'audio',89+Math.min(4,3*i/Math.max(1,items.length)),`خلط الصوت ${i+1}`);
