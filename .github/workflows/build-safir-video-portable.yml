@@ -30,6 +30,10 @@ jobs:
         working-directory: safir-video-build
         run: npm run check
 
+      - name: Smoke test manual timeline render
+        working-directory: safir-video-build
+        run: node tests/manual-timeline-smoke.js
+
       - name: Build Windows Portable EXE
         working-directory: safir-video-build
         env:
