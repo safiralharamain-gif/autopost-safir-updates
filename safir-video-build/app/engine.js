@@ -566,7 +566,8 @@ async function renderVideo(payload,cb){
       const crop=cropFor(analysis.meta,settings.format||'9:16',c.zoom);
       const out=path.join(temp,`clip-${String(i).padStart(4,'0')}.mp4`);
       const dur=Math.max(.06,c.end-c.start);
-      const outFps=Math.round(Math.min(60,Math.max(24,analysis.meta.fps||30)));\n      const vf=`crop=${crop.cw}:${crop.ch}:${crop.x}:${crop.y},scale=${crop.w}:${crop.h}:flags=lanczos,setsar=1,fps=${outFps}`;
+      const outFps=Math.round(Math.min(60,Math.max(24,analysis.meta.fps||30)));
+      const vf=`crop=${crop.cw}:${crop.ch}:${crop.x}:${crop.y},scale=${crop.w}:${crop.h}:flags=lanczos,setsar=1,fps=${outFps}`;
       const args=['-y','-hide_banner','-ss',c.start.toFixed(3),'-i',source,'-t',dur.toFixed(3),'-vf',vf,
         '-c:v','libx264','-preset',settings.quality==='fast'?'veryfast':'medium','-crf',settings.quality==='high'?'18':'20','-pix_fmt','yuv420p'];
       if(analysis.meta.hasAudio)args.push('-c:a','aac','-b:a','192k','-ar','48000','-ac','2');
