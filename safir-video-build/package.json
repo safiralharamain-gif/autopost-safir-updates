@@ -7,7 +7,7 @@
   "license": "UNLICENSED",
   "scripts": {
     "start": "electron .",
-    "check": "node --check app/main.js && node --check app/preload.js && node --check app/engine.js && node --check app/renderer.js",
+    "check": "node --check app/main.js && node --check app/preload.js && node --check app/engine.js && node --check app/renderer.js && node --check app/timeline.js",
     "pack:win": "electron-builder --win portable"
   },
   "dependencies": {
