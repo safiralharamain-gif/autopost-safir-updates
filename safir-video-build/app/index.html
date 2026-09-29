@@ -1,0 +1,147 @@
+<!doctype html>
+<html lang="ar" dir="rtl">
+<head>
+  <meta charset="utf-8"/>
+  <meta name="viewport" content="width=device-width,initial-scale=1"/>
+  <title>سفير الفيديو الذكي</title>
+  <link rel="stylesheet" href="styles.css"/>
+</head>
+<body>
+  <div class="app-shell">
+    <aside class="sidebar">
+      <div class="brand">
+        <div class="brand-mark">س</div>
+        <div><h1>سفير الفيديو الذكي</h1><p>ارمِ الخام… واستلم فيديو جاهز</p></div>
+      </div>
+      <nav>
+        <button class="nav active" data-view="studio"><span>✦</span> الاستوديو الذكي</button>
+        <button class="nav" data-view="brand"><span>◆</span> الهوية والقوالب</button>
+        <button class="nav" data-view="library"><span>▣</span> مكتبة B‑roll</button>
+      </nav>
+      <div class="mode-box">
+        <div class="eyebrow">طريقة العمل</div>
+        <div class="segmented" id="modeSelector">
+          <button data-mode="auto" class="active">AUTO</button>
+          <button data-mode="assistant">ASSISTANT</button>
+          <button data-mode="manual">MANUAL</button>
+        </div>
+        <p id="modeHelp">البرنامج يقرر وينفّذ، وإنت تراجع النتيجة.</p>
+      </div>
+      <div class="side-actions">
+        <button id="openProject" class="ghost">فتح مشروع</button>
+        <button id="saveProject" class="ghost">حفظ مشروع</button>
+      </div>
+      <div class="version">SAFIR AI VIDEO · Portable</div>
+    </aside>
+
+    <main class="main">
+      <header class="topbar">
+        <div>
+          <div class="eyebrow">AI AUTO EDITOR</div>
+          <h2>من الفيديو الخام إلى Reel جاهز للنشر</h2>
+        </div>
+        <div class="top-actions">
+          <button id="analyzeBtn" class="secondary" disabled>حلّل الفيديو</button>
+          <button id="exportBtn" class="primary" disabled>صدّر الفيديو النهائي</button>
+        </div>
+      </header>
+
+      <section id="studioView" class="view active">
+        <div class="workspace-grid">
+          <section class="preview-card card">
+            <div id="dropZone" class="drop-zone">
+              <div class="upload-icon">＋</div>
+              <h3>ارمِ الفيديو الخام هنا</h3>
+              <p>MP4 / MOV / MKV — البرنامج هيحلله قبل ما يقص أي حاجة</p>
+              <button id="pickVideo" class="primary small">اختيار فيديو</button>
+            </div>
+            <div id="videoWrap" class="video-wrap hidden">
+              <video id="preview" controls></video>
+              <div class="video-badges"><span id="videoName"></span><span id="videoMeta"></span></div>
+            </div>
+            <div class="progress-wrap hidden" id="progressWrap">
+              <div class="progress-head"><span id="progressText">جاري التحليل...</span><b id="progressPercent">0%</b></div>
+              <div class="progress"><i id="progressBar"></i></div>
+            </div>
+          </section>
+
+          <aside class="settings card">
+            <div class="card-head"><div><div class="eyebrow">AUTO DIRECTOR</div><h3>شكل الفيديو النهائي</h3></div><span class="status-dot"></span></div>
+            <label>المقاس</label>
+            <div class="format-grid" id="formatGrid">
+              <button class="format active" data-format="9:16"><b>9:16</b><small>Reels / TikTok</small></button>
+              <button class="format" data-format="16:9"><b>16:9</b><small>YouTube</small></button>
+              <button class="format" data-format="1:1"><b>1:1</b><small>Square</small></button>
+            </div>
+            <div class="toggle-row"><div><b>تنظيف السكوت</b><small>يشيل الفراغات مع هامش طبيعي</small></div><input type="checkbox" id="removeSilence" checked></div>
+            <div class="toggle-row"><div><b>إزالة اللخبطة والتكرار</b><small>تعمل عند توفر محرك الكلام الذكي</small></div><input type="checkbox" id="removeSemantic" checked></div>
+            <div class="toggle-row"><div><b>Auto Zoom</b><small>Zoom بسيط عند الجمل المهمة</small></div><input type="checkbox" id="autoZoom" checked></div>
+            <div class="toggle-row"><div><b>تنظيف الصوت</b><small>Noise + Loudness</small></div><input type="checkbox" id="cleanAudio" checked></div>
+            <div class="toggle-row"><div><b>Captions عربي</b><small>عند توفر محرك الكلام الذكي</small></div><input type="checkbox" id="captions" checked></div>
+            <label>جودة التصدير</label>
+            <select id="quality"><option value="balanced">متوازنة</option><option value="high">عالية</option><option value="fast">سريعة</option></select>
+          </aside>
+        </div>
+
+        <section class="results hidden" id="results">
+          <div class="metrics">
+            <div class="metric"><small>الخام</small><b id="mOriginal">—</b></div>
+            <div class="metric"><small>بعد التنظيف</small><b id="mFinal">—</b></div>
+            <div class="metric"><small>المحذوف</small><b id="mRemoved">—</b></div>
+            <div class="metric"><small>قرارات ذكية</small><b id="mDecisions">—</b></div>
+          </div>
+
+          <div class="results-grid">
+            <section class="card panel">
+              <div class="panel-head"><div><div class="eyebrow">SMART HOOK</div><h3>ابدأ بأقوى جملة</h3></div><label class="switch-label"><input id="moveHook" type="checkbox" checked> انقلها للبداية</label></div>
+              <div id="hooks" class="hook-list empty-state">يظهر عند توفر تحليل الكلام.</div>
+            </section>
+            <section class="card panel">
+              <div class="panel-head"><div><div class="eyebrow">EDIT DECISIONS</div><h3>إيه اللي البرنامج هيشيله؟</h3></div><span class="pill">بدون Timeline</span></div>
+              <div id="decisions" class="decision-list"></div>
+            </section>
+          </div>
+
+          <section class="card panel transcript-panel">
+            <div class="panel-head"><div><div class="eyebrow">TRANSCRIPT EDITOR</div><h3>عدّل الفيديو من الكلام</h3></div><span class="pill gold">اضغط على جملة لحذفها/رجوعها</span></div>
+            <div id="transcript" class="transcript"></div>
+          </section>
+
+          <div class="results-grid">
+            <section class="card panel">
+              <div class="panel-head"><div><div class="eyebrow">B‑ROLL MATCH</div><h3>لقطات مساعدة مقترحة</h3></div><button id="pickBroll" class="mini">اختيار مكتبة</button></div>
+              <div id="brollList" class="broll-list empty-state">اختر مجلد لقطاتك.</div>
+            </section>
+            <section class="card panel command-panel">
+              <div class="panel-head"><div><div class="eyebrow">NATURAL COMMANDS</div><h3>قول للبرنامج عايز إيه</h3></div></div>
+              <textarea id="command" placeholder="مثال: خليه ريلز سريع، شيل السكوت، وحط زوم، ونظف الصوت..."></textarea>
+              <button id="applyCommand" class="secondary full">نفّذ الأمر على الإعدادات</button>
+              <div id="commandResult" class="command-result"></div>
+            </section>
+          </div>
+
+          <section class="final-actions card">
+            <div><div class="eyebrow">READY</div><h3>تصدير سريع بدون Timeline</h3><p>حلّل، راجع قرارات الحذف، ثم صدّر.</p></div>
+            <div><button id="createReels" class="secondary">أنشئ Reels</button><button id="exportBtn2" class="primary">صدّر النسخة الرئيسية</button></div>
+          </section>
+        </section>
+      </section>
+
+      <section id="brandView" class="view">
+        <div class="page-title"><div><div class="eyebrow">BRAND KIT</div><h2>هوية تظهر تلقائيًا على كل فيديو</h2></div></div>
+        <div class="brand-grid">
+          <div class="card form-card"><label>اللوجو</label><div class="file-row"><input id="logoPath" readonly placeholder="لم يتم اختيار لوجو"><button id="pickLogo" class="secondary">اختيار</button></div><label>خط الكابتشن</label><input id="fontName" value="FF Shamel Family"><label>حجم الكابتشن</label><input id="captionSize" type="range" min="46" max="110" value="74"><div class="range-value"><span>صغير</span><b id="captionSizeValue">74</b><span>كبير</span></div></div>
+          <div class="card brand-preview"><div class="fake-reel"><div class="logo-chip">سفير الحرمين</div><div class="caption-demo">رحلة <mark>تليق</mark> بمقامك</div><div class="safe-zone"></div></div><p>معاينة تقريبية لمكان اللوجو والكابتشن.</p></div>
+        </div>
+      </section>
+
+      <section id="libraryView" class="view">
+        <div class="page-title"><div><div class="eyebrow">B‑ROLL LIBRARY</div><h2>مكتبتك الخاصة بدل البحث كل مرة</h2></div><button id="pickBroll2" class="primary">اختيار مجلد المكتبة</button></div>
+        <div class="card library-card"><h3 id="libraryPath">لم يتم اختيار مجلد</h3><p>استخدم أسماء واضحة للملفات مثل: الكعبة_ليل.mp4، فندق_غرفة.mov، جواز_سفر.jpg.</p></div>
+      </section>
+    </main>
+  </div>
+  <div id="toast" class="toast"></div>
+  <script src="renderer.js"></script>
+</body>
+</html>
