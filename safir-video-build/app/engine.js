@@ -542,7 +542,7 @@ async function renderVideo(payload,cb){
   const plan=buildPlan(analysis,settings);
   if(!plan.clips.length)throw new Error('لا توجد أجزاء متبقية للتصدير');
   const requestedTransition=Math.max(0,Number(settings.transitionDuration||0));
-  if(requestedTransition>=.04&&plan.clips.length>1){
+  if(requestedTransition>=.04&&plan.clips.length>1&&plan.clips.length<=40){
     const minDur=Math.min(...plan.clips.map(c=>Math.max(.06,c.end-c.start)));
     const td=Math.max(.04,Math.min(requestedTransition,minDur/3));
     let t=0;
