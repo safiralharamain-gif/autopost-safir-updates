@@ -14,7 +14,13 @@ function bin(name) {
   return unpacked(ffprobePath) || 'ffprobe';
 }
 function aiPath(name) {
-  return unpacked(path.join(__dirname, '..', 'ai', name));
+  const candidates = [
+    process.env.SAFIR_AI_DIR ? path.join(process.env.SAFIR_AI_DIR, name) : null,
+    process.execPath ? path.join(path.dirname(process.execPath), 'ai', name) : null,
+    process.resourcesPath ? path.join(process.resourcesPath, 'ai', name) : null,
+    unpacked(path.join(__dirname, '..', 'ai', name))
+  ].filter(Boolean);
+  return candidates.find(p => fs.existsSync(p)) || candidates[0];
 }
 function notify(cb, phase, progress, text) { if (cb) cb({ phase, progress, text }); }
 
