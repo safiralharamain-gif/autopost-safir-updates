@@ -43,6 +43,17 @@ jobs:
           if (-not $files) { throw "No EXE was produced" }
           $files | ForEach-Object { Write-Host $_.FullName $_.Length }
 
+      - name: Smoke test EXE launch
+        shell: pwsh
+        run: |
+          $exe = Get-ChildItem -Path "safir-video-build/dist" -Filter "*.exe" | Select-Object -First 1
+          if (-not $exe) { throw "EXE not found for smoke test" }
+          $p = Start-Process -FilePath $exe.FullName -PassThru
+          Start-Sleep -Seconds 10
+          if ($p.HasExited) { throw "EXE exited during smoke test with code $($p.ExitCode)" }
+          Stop-Process -Id $p.Id -Force
+          Write-Host "Smoke test passed: EXE stayed running."
+
       - name: Upload Windows Portable
         uses: actions/upload-artifact@v4
         with:
