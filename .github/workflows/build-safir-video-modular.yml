@@ -1,0 +1,131 @@
+name: Build SAFIR Video Modular
+
+on:
+  push:
+    branches:
+      - build/safir-video-portable-v3
+    paths:
+      - 'safir-video-build/**'
+      - '.github/workflows/build-safir-video-modular.yml'
+  workflow_dispatch:
+
+concurrency:
+  group: safir-video-modular-build
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: windows-latest
+    timeout-minutes: 35
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      - name: Install dependencies
+        working-directory: safir-video-build
+        run: npm install --no-audit --no-fund
+
+      - name: Validate JavaScript and import wiring
+        working-directory: safir-video-build
+        run: |
+          npm run check
+          node tests/import-wiring-smoke.js
+
+      - name: Build Arabic AI pack
+        shell: pwsh
+        run: |
+          git clone --depth 1 --branch v1.9.4 https://github.com/ggml-org/whisper.cpp.git whisper-src
+          cmake -S whisper-src -B whisper-src/build -DWHISPER_BUILD_TESTS=OFF -DWHISPER_BUILD_SERVER=OFF -DGGML_NATIVE=OFF -DBUILD_SHARED_LIBS=OFF
+          cmake --build whisper-src/build --config Release --target whisper-cli -j 2
+          New-Item -ItemType Directory -Force -Path safir-video-build/ai | Out-Null
+          Copy-Item whisper-src/build/bin/Release/whisper-cli.exe safir-video-build/ai/whisper-cli.exe
+          curl.exe -L --retry 3 --retry-delay 3 -o safir-video-build/ai/ggml-base.bin "https://huggingface.co/ggerganov/whisper.cpp/resolve/main/ggml-base.bin?download=true"
+          if ((Get-Item safir-video-build/ai/ggml-base.bin).Length -lt 100000000) { throw "Whisper model download is incomplete" }
+
+      - name: Test Arabic AI engine and render
+        working-directory: safir-video-build
+        run: |
+          node tests/whisper-engine-smoke.js
+          node tests/manual-timeline-smoke.js
+
+      - name: Build modular core folder
+        working-directory: safir-video-build
+        env:
+          CSC_IDENTITY_AUTO_DISCOVERY: 'false'
+        run: npx electron-builder --win dir --config electron-builder.modular.json
+
+      - name: Smoke test modular core launch
+        shell: pwsh
+        run: |
+          $exe = Get-ChildItem -Path "safir-video-build/dist-modular/win-unpacked" -Filter "*.exe" | Select-Object -First 1
+          if (-not $exe) { throw "Core EXE not found" }
+          $p = Start-Process -FilePath $exe.FullName -PassThru
+          Start-Sleep -Seconds 10
+          if ($p.HasExited) { throw "Core EXE exited with code $($p.ExitCode)" }
+          Stop-Process -Id $p.Id -Force
+          Write-Host "CORE_LAUNCH_PASS"
+
+      - name: Prepare modular downloads
+        shell: pwsh
+        run: |
+          New-Item -ItemType Directory -Force -Path release/core | Out-Null
+          New-Item -ItemType Directory -Force -Path release/ai/ai | Out-Null
+          New-Item -ItemType Directory -Force -Path release/patch/resources | Out-Null
+
+          Copy-Item -Recurse safir-video-build/dist-modular/win-unpacked/* release/core/
+          Copy-Item safir-video-build/ai/whisper-cli.exe release/ai/ai/
+          Copy-Item safir-video-build/ai/ggml-base.bin release/ai/ai/
+          Copy-Item safir-video-build/dist-modular/win-unpacked/resources/app.asar release/patch/resources/app.asar
+
+          @"
+          SAFIR Video Core
+          1) Extract this ZIP to a permanent folder.
+          2) Run the Arabic-named EXE inside.
+          3) Keep this folder. Future updates only replace resources/app.asar.
+          "@ | Set-Content -Encoding UTF8 release/core/README_UPDATE_SYSTEM.txt
+
+          @"
+          SAFIR Arabic AI Pack
+          Extract this ZIP into the SAME program folder.
+          The result must be: <program folder>\ai\whisper-cli.exe and ggml-base.bin
+          Download this AI pack only once.
+          "@ | Set-Content -Encoding UTF8 release/ai/README_AI_PACK.txt
+
+          @"
+          SAFIR Small Patch
+          Close the program.
+          Extract this ZIP into the program folder and choose Replace.
+          It replaces only resources\app.asar.
+          "@ | Set-Content -Encoding UTF8 release/patch/README_PATCH.txt
+
+          Compress-Archive -Path release/core/* -DestinationPath SAFIR_VIDEO_CORE_v2.3.1.zip -Force
+          Compress-Archive -Path release/ai/* -DestinationPath SAFIR_ARABIC_AI_PACK.zip -Force
+          Compress-Archive -Path release/patch/* -DestinationPath SAFIR_PATCH_v2.3.1.zip -Force
+
+          Get-Item SAFIR_VIDEO_CORE_v2.3.1.zip,SAFIR_ARABIC_AI_PACK.zip,SAFIR_PATCH_v2.3.1.zip | Select-Object Name,Length
+
+      - name: Upload core
+        uses: actions/upload-artifact@v4
+        with:
+          name: safir-video-core
+          path: SAFIR_VIDEO_CORE_v2.3.1.zip
+          retention-days: 14
+
+      - name: Upload AI pack
+        uses: actions/upload-artifact@v4
+        with:
+          name: safir-arabic-ai-pack
+          path: SAFIR_ARABIC_AI_PACK.zip
+          retention-days: 14
+
+      - name: Upload small patch
+        uses: actions/upload-artifact@v4
+        with:
+          name: safir-video-patch
+          path: SAFIR_PATCH_v2.3.1.zip
+          retention-days: 14
