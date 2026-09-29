@@ -65,7 +65,7 @@ async function probeMedia(file) {
 
 async function detectSilence(video,duration,cb) {
   notify(cb,'silence',14,'اكتشاف السكوت والوقفات...');
-  const args=['-hide_banner','-i',video,'-af','silencedetect=noise=-34dB:d=0.48','-f','null','-'];
+  const args=['-hide_banner','-i',video,'-af','silencedetect=noise=-36dB:d=0.38','-f','null','-'];
   let stderr='';
   try { await run(bin('ffmpeg'),args,{onData:(d,isErr)=>{if(isErr)stderr+=d;}}); }
   catch(e){ stderr+='\n'+e.message; }
@@ -77,8 +77,8 @@ async function detectSilence(video,duration,cb) {
   const out=[];
   for(let i=0;i<starts.length;i++){
     const s=starts[i], e=ends[i]??duration;
-    if(e-s<.48)continue;
-    const pad=Math.min(.17,(e-s)*.19);
+    if(e-s<.38)continue;
+    const pad=Math.min(.12,(e-s)*.16);
     const rs=s+pad,re=e-pad;
     if(re-rs>.16)out.push({start:rs,end:re,reason:'سكوت طويل',kind:'silence',confidence:.98});
   }
@@ -328,14 +328,16 @@ async function analyzeVideo(payload,cb){
   };
 }
 
-function outputSize(format){
+function outputSize(format,meta){
+  if(format==='original'&&meta)return{w:even(meta.width),h:even(meta.height),ratio:meta.width/meta.height};
   if(format==='16:9')return{w:1920,h:1080,ratio:16/9};
   if(format==='1:1')return{w:1080,h:1080,ratio:1};
   return{w:1080,h:1920,ratio:9/16};
 }
 function even(n){return Math.max(2,Math.floor(n/2)*2)}
 function cropFor(meta,format,zoom=1){
-  const target=outputSize(format),sw=meta.width,sh=meta.height;
+  const target=outputSize(format,meta),sw=meta.width,sh=meta.height;
+  if(format==='original')return{cw:even(sw),ch:even(sh),x:0,y:0,...target};
   let cw,ch;
   if(sw/sh>target.ratio){ch=sh;cw=ch*target.ratio;} else {cw=sw;ch=cw/target.ratio;}
   cw=even(cw/zoom); ch=even(ch/zoom);
@@ -459,7 +461,7 @@ async function applyCaptions(base,analysis,plan,temp,settings,cb){
   if(!sourceItems?.length)return base;
   const mapped=remapCaptions(sourceItems,plan,analysis.video);
   if(!mapped.length)return base;
-  const target=outputSize(settings.format||'9:16');
+  const target=outputSize(settings.format||'9:16',analysis.meta);
   const ass=path.join(temp,'captions.ass'),out=path.join(temp,'captioned.mp4');
   const font=String(settings.fontName||'FF Shamel Family').replace(/,/g,' ').trim()||'Arial';
   const size=Math.max(38,Math.min(110,Number(settings.captionSize||74)));
@@ -498,16 +500,65 @@ async function applyAudio(base,items,totalDuration,temp,cb,hasBaseAudio){
   return{file:current,hasAudio};
 }
 
+async function combineWithTransitions(parts,clipDurations,hasAudio,temp,settings,cb){
+  const requested=Math.max(0,Number(settings.transitionDuration||0));
+  if(parts.length<2||requested<.04||parts.length>40)return null;
+  const minDur=Math.min(...clipDurations);
+  const d=Math.max(.04,Math.min(requested,minDur/3));
+  const out=path.join(temp,'combined-transition.mp4');
+  const args=['-y','-hide_banner'];
+  for(const p of parts)args.push('-i',p);
+
+  const filters=[];
+  let cumulative=clipDurations[0];
+  let vPrev='0:v',aPrev='0:a';
+  for(let i=1;i<parts.length;i++){
+    const offset=Math.max(.01,cumulative-d*i);
+    const vOut='v'+i;
+    filters.push(`[${vPrev}][${i}:v]xfade=transition=fade:duration=${d.toFixed(3)}:offset=${offset.toFixed(3)}[${vOut}]`);
+    vPrev=vOut;
+    if(hasAudio){
+      const aOut='a'+i;
+      filters.push(`[${aPrev}][${i}:a]acrossfade=d=${d.toFixed(3)}:c1=tri:c2=tri[${aOut}]`);
+      aPrev=aOut;
+    }
+    cumulative+=clipDurations[i];
+  }
+  notify(cb,'transition',82,'إضافة انتقالات خفيفة بين القصات...');
+  args.push('-filter_complex',filters.join(';'),'-map',`[${vPrev}]`);
+  if(hasAudio)args.push('-map',`[${aPrev}]`);
+  args.push('-c:v','libx264','-preset',settings.quality==='fast'?'veryfast':'medium','-crf','19','-pix_fmt','yuv420p');
+  if(hasAudio)args.push('-c:a','aac','-b:a','192k');
+  else args.push('-an');
+  args.push('-movflags','+faststart',out);
+  await run(bin('ffmpeg'),args);
+  return{file:out,duration:clipDurations.reduce((a,b)=>a+b,0)-d*(parts.length-1),transition:d};
+}
+
 async function renderVideo(payload,cb){
   const {analysis,settings={},output}=payload;
   if(!analysis?.video||!fs.existsSync(analysis.video))throw new Error('حلّل الفيديو أولًا');
   if(!output)throw new Error('اختر مكان حفظ الفيديو');
   const plan=buildPlan(analysis,settings);
   if(!plan.clips.length)throw new Error('لا توجد أجزاء متبقية للتصدير');
+  const requestedTransition=Math.max(0,Number(settings.transitionDuration||0));
+  if(requestedTransition>=.04&&plan.clips.length>1){
+    const minDur=Math.min(...plan.clips.map(c=>Math.max(.06,c.end-c.start)));
+    const td=Math.max(.04,Math.min(requestedTransition,minDur/3));
+    let t=0;
+    plan.clips.forEach((c,i)=>{
+      if(i>0)t-=td;
+      c.outputStart=t;
+      t+=Math.max(.06,c.end-c.start);
+      c.outputEnd=t;
+    });
+    plan.duration=t;
+    plan.transitionDuration=td;
+  }
 
   const temp=fs.mkdtempSync(path.join(os.tmpdir(),'safir-video-'));
   try{
-    const parts=[];
+    const parts=[],clipDurations=[];
     for(let i=0;i<plan.clips.length;i++){
       const c=plan.clips[i];
       const source=c.source||analysis.video;
@@ -523,21 +574,28 @@ async function renderVideo(payload,cb){
       args.push('-movflags','+faststart',out);
       notify(cb,'render',60+20*(i/plan.clips.length),`تجهيز مقطع ${i+1} من ${plan.clips.length}`);
       await run(bin('ffmpeg'),args);
-      parts.push(out);
+      parts.push(out);clipDurations.push(dur);
     }
 
     const list=path.join(temp,'concat.txt');
     fs.writeFileSync(list,parts.map(p=>`file '${concatEscape(p)}'`).join('\n'),'utf8');
-    const combined=path.join(temp,'combined.mp4');
-    notify(cb,'render',82,'تجميع المقاطع...');
-    try{
-      await run(bin('ffmpeg'),['-y','-hide_banner','-f','concat','-safe','0','-i',list,'-c','copy','-movflags','+faststart',combined]);
-    }catch(_){
-      const a=['-y','-hide_banner','-f','concat','-safe','0','-i',list,'-c:v','libx264','-preset','veryfast','-crf','20'];
-      if(analysis.meta.hasAudio)a.push('-c:a','aac','-b:a','192k');
-      else a.push('-an');
-      a.push('-movflags','+faststart',combined);
-      await run(bin('ffmpeg'),a);
+    let combined=path.join(temp,'combined.mp4');
+    const transitioned=await combineWithTransitions(parts,clipDurations,analysis.meta.hasAudio,temp,settings,cb);
+    if(transitioned){
+      combined=transitioned.file;
+      plan.duration=transitioned.duration;
+      plan.transitionDuration=transitioned.transition;
+    }else{
+      notify(cb,'render',82,'تجميع المقاطع...');
+      try{
+        await run(bin('ffmpeg'),['-y','-hide_banner','-f','concat','-safe','0','-i',list,'-c','copy','-movflags','+faststart',combined]);
+      }catch(_){
+        const a=['-y','-hide_banner','-f','concat','-safe','0','-i',list,'-c:v','libx264','-preset','veryfast','-crf','20'];
+        if(analysis.meta.hasAudio)a.push('-c:a','aac','-b:a','192k');
+        else a.push('-an');
+        a.push('-movflags','+faststart',combined);
+        await run(bin('ffmpeg'),a);
+      }
     }
 
     const target=outputSize(settings.format||'9:16');
@@ -578,6 +636,48 @@ async function renderVideo(payload,cb){
   }
 }
 
+function uniqueOutputPath(video){
+  const dir=path.dirname(video),ext=path.extname(video),base=path.basename(video,ext);
+  let out=path.join(dir,base+' - جاهز.mp4'),n=2;
+  while(fs.existsSync(out)){out=path.join(dir,base+` - جاهز (${n++}).mp4`)}
+  return out;
+}
+
+async function processSimpleVideo(video,cb){
+  if(!video||!fs.existsSync(video))throw new Error('الفيديو غير موجود');
+  notify(cb,'start',1,'قراءة الفيديو...');
+  const analysis=await analyzeVideo({
+    video,
+    settings:{removeSilence:true,removeSemantic:true}
+  },cb);
+  if(!analysis.aiAvailable){
+    throw new Error('حزمة الذكاء العربي غير موجودة. ثبّت SAFIR_ARABIC_AI_PACK مرة واحدة ثم افتح البرنامج من جديد.');
+  }
+  // In simple mode only real removals create cuts; sentence boundaries alone do not.
+  const cleanAnalysis={...analysis,autoClips:[]};
+  const output=uniqueOutputPath(video);
+  const settings={
+    format:'original',
+    removeSilence:true,
+    removeSemantic:true,
+    autoZoom:false,
+    cleanAudio:true,
+    captions:true,
+    captionMode:'sentence',
+    fontName:'FF Shamel Family',
+    captionSize:64,
+    quality:'balanced',
+    transitionDuration:.12
+  };
+  const rendered=await renderVideo({analysis:cleanAnalysis,settings,output},cb);
+  return{
+    output:rendered.output,
+    removed:analysis.summary?.removed||0,
+    cuts:rendered.plan?.clips?.length||1,
+    captions:analysis.summary?.captions||0
+  };
+}
+
 async function createReels(payload,cb){
   const {analysis,settings={},folder}=payload;
   if(!analysis?.video)throw new Error('حلّل الفيديو أولًا');
@@ -600,4 +700,4 @@ async function createReels(payload,cb){
   return outputs;
 }
 
-module.exports={analyzeVideo,renderVideo,createReels,buildPlan,mergeIntervals,probeMedia,parseSrt,parseWhisperJson,transcribeArabic,buildWordHighlightEvents};
+module.exports={analyzeVideo,renderVideo,processSimpleVideo,createReels,buildPlan,mergeIntervals,probeMedia,parseSrt,parseWhisperJson,transcribeArabic,buildWordHighlightEvents};
