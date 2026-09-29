@@ -9,7 +9,20 @@ window.safir.onProgress(x=>setProgress(x.progress||0,x.text||''));
 
 $$('.nav').forEach(b=>b.onclick=()=>{$$('.nav').forEach(x=>x.classList.remove('active'));b.classList.add('active');$$('.view').forEach(x=>x.classList.remove('active'));$(`#${b.dataset.view}View`).classList.add('active')});
 $$('#modeSelector button').forEach(b=>b.onclick=()=>{$$('#modeSelector button').forEach(x=>x.classList.remove('active'));b.classList.add('active');state.mode=b.dataset.mode;$('#modeHelp').textContent=modeHelp[state.mode]});
-$$('.format').forEach(b=>b.onclick=()=>{$$('.format').forEach(x=>x.classList.remove('active'));b.classList.add('active');state.format=b.dataset.format});
+function updatePreviewFormat(){
+  const cls='format-'+String(state.format).replace(':','-');
+  const studio=$('#videoWrap'), manual=$('#timelinePreview')?.parentElement;
+  for(const el of [studio,manual].filter(Boolean)){
+    el.classList.remove('format-9-16','format-16-9','format-1-1');
+    el.classList.add(cls);
+  }
+}
+$('.format').forEach(b=>b.onclick=()=>{
+  $('.format').forEach(x=>x.classList.remove('active'));
+  b.classList.add('active');
+  state.format=b.dataset.format;
+  updatePreviewFormat();
+});
 
 async function chooseVideo(){const p=await window.safir.pickVideo();if(p)loadVideo(p)}
 $('#pickVideo').onclick=chooseVideo;
@@ -24,6 +37,7 @@ function loadVideo(p){
   $('#preview').src=`file:///${p.replace(/\\/g,'/')}`;
   $('#videoName').textContent=p.split(/[\\/]/).pop();$('#videoMeta').textContent='جاهز للتحليل';
   $('#analyzeBtn').disabled=false;$('#exportBtn').disabled=true;$('#results').classList.add('hidden');
+  updatePreviewFormat();
   toast('تم تحميل الفيديو الخام');
 }
 
@@ -47,7 +61,7 @@ async function analyze(){
   if(!state.video)return;
   $('#analyzeBtn').disabled=true;
   try{
-    state.analysis=await window.safir.analyzeVideo({video:state.video,brollFolder:state.brollFolder,useAI:true});
+    state.analysis=await window.safir.analyzeVideo({video:state.video,brollFolder:state.brollFolder,useAI:true,settings:currentSettings()});
     renderAnalysis();$('#results').classList.remove('hidden');$('#exportBtn').disabled=false;$('#exportBtn2').disabled=false;
     window.dispatchEvent(new CustomEvent('safir-analysis-ready',{detail:{analysis:state.analysis,video:state.video,settings:currentSettings()}}));
     toast(state.analysis.aiAvailable?'التحليل الذكي اكتمل':'التحليل الأساسي اكتمل');
@@ -62,7 +76,10 @@ function renderAnalysis(){
   $('#mOriginal').textContent=sec(a.summary.original);
   $('#mFinal').textContent=sec(a.summary.estimated);
   $('#mRemoved').textContent=sec(a.summary.removed);
-  $('#mDecisions').textContent=String(a.removals.length+(a.segments?.length||0));
+  $('#mDecisions').textContent=String((a.autoClips?.length||0)+(a.removals?.length||0));
+  const captionCount=a.summary?.captions||0;
+  const clipCount=a.summary?.clips||a.autoClips?.length||0;
+  if(a.aiAvailable) $('#progressText').textContent=`الكابشن: ${captionCount} · المقاطع: ${clipCount}`;
 
   const hooks=$('#hooks');hooks.innerHTML='';
   if(!a.hooks.length){hooks.className='hook-list empty-state';hooks.textContent=a.aiReason||'لا يوجد تحليل كلام متاح حاليًا';}
@@ -177,6 +194,8 @@ $('#openProject').onclick=async()=>{
     $('#captions').checked=s.captions!==false;$('#quality').value=s.quality||'balanced';
     $('#fontName').value=s.fontName||'FF Shamel Family';$('#captionSize').value=s.captionSize||74;
     $('#captionSizeValue').textContent=s.captionSize||74;
+    $('.format').forEach(b=>b.classList.toggle('active',b.dataset.format===state.format));
+    updatePreviewFormat();
   }
   if(p.analysis){state.analysis=p.analysis;renderAnalysis();$('#results').classList.remove('hidden');$('#exportBtn').disabled=false;$('#exportBtn2').disabled=false}
   if(p.timeline) setTimeout(()=>window.safirTimeline?.restore?.(p.timeline),0);
@@ -190,5 +209,7 @@ window.safirApp={
   toast,
   sec,
   loadVideo,
-  renderAnalysis
+  renderAnalysis,
+  updatePreviewFormat
 };
+updatePreviewFormat();
