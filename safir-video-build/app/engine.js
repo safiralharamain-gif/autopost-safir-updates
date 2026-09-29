@@ -13,6 +13,9 @@ function bin(name) {
   if (name === 'ffmpeg') return unpacked(ffmpegPath) || 'ffmpeg';
   return unpacked(ffprobePath) || 'ffprobe';
 }
+function aiPath(name) {
+  return unpacked(path.join(__dirname, '..', 'ai', name));
+}
 function notify(cb, phase, progress, text) { if (cb) cb({ phase, progress, text }); }
 
 function run(cmd, args, opts = {}) {
@@ -76,6 +79,98 @@ async function detectSilence(video,duration,cb) {
   return out;
 }
 
+function srtTimeToSeconds(s){
+  const m=String(s||'').trim().match(/(\d+):(\d+):(\d+)[,.](\d+)/);
+  if(!m)return 0;
+  return Number(m[1])*3600+Number(m[2])*60+Number(m[3])+Number(m[4].padEnd(3,'0').slice(0,3))/1000;
+}
+function parseSrt(text){
+  const blocks=String(text||'').replace(/\r/g,'').trim().split(/\n{2,}/);
+  const out=[];
+  for(const block of blocks){
+    const lines=block.split('\n').filter(Boolean);
+    const timing=lines.findIndex(x=>x.includes('-->'));
+    if(timing<0)continue;
+    const m=lines[timing].match(/(.+?)\s*-->\s*(.+)/); if(!m)continue;
+    const body=lines.slice(timing+1).join(' ').replace(/<[^>]+>/g,'').trim();
+    if(!body)continue;
+    out.push({id:out.length+1,start:srtTimeToSeconds(m[1]),end:srtTimeToSeconds(m[2]),text:body,importance:0.45});
+  }
+  return out;
+}
+function normalizeArabic(s){
+  return String(s||'')
+    .replace(/[\u064B-\u065F\u0670]/g,'')
+    .replace(/[أإآ]/g,'ا').replace(/ى/g,'ي').replace(/ة/g,'ه')
+    .replace(/[^\u0600-\u06FF0-9a-zA-Z ]/g,' ')
+    .replace(/\s+/g,' ').trim().toLowerCase();
+}
+function semanticRemovalsFromSegments(segments){
+  const out=[], fillers=new Set(['اه','آه','امم','اممم','يعني','طيب','تمام','اوك','اوكي','ممم']);
+  for(let i=0;i<segments.length;i++){
+    const s=segments[i], n=normalizeArabic(s.text), prev=i?normalizeArabic(segments[i-1].text):'';
+    const words=n.split(' ').filter(Boolean);
+    if((s.end-s.start)<=1.8 && words.length<=2 && words.every(w=>fillers.has(w))){
+      out.push({start:s.start,end:s.end,kind:'semantic',reason:'كلمة حشو قصيرة',confidence:.9});
+      continue;
+    }
+    if(prev && n && (n===prev || (n.length>10 && prev.includes(n)) || (prev.length>10 && n.includes(prev)))){
+      out.push({start:s.start,end:s.end,kind:'semantic',reason:'تكرار قريب',confidence:.82});
+    }
+  }
+  return out;
+}
+function scoreHooks(segments){
+  return segments.map(s=>{
+    const t=String(s.text||'');
+    let score=.25;
+    if(/[؟?]/.test(t))score+=.2;
+    if(/\d/.test(t))score+=.12;
+    if(/خلي بالك|مهم|لازم|قبل ما|سر|غلط|ممنوع|أفضل|ازاي|إزاي|ليه/.test(t))score+=.2;
+    if(t.length>=18&&t.length<=85)score+=.15;
+    score+=Math.max(0,.08-Math.min(.08,s.start/120));
+    return {...s,score:Math.min(.99,score)};
+  }).sort((a,b)=>b.score-a.score).slice(0,5);
+}
+function splitKeptRanges(kept,segments){
+  const out=[];
+  for(const r of kept){
+    let cuts=[r.start,r.end];
+    for(const s of segments||[]){
+      if(s.start>r.start+.8&&s.start<r.end-.45)cuts.push(s.start);
+    }
+    cuts=[...new Set(cuts.map(x=>Math.round(x*100)/100))].sort((a,b)=>a-b);
+    let last=cuts[0];
+    for(let i=1;i<cuts.length;i++){
+      const end=cuts[i];
+      if(end-last<.7 && i<cuts.length-1)continue;
+      out.push({start:last,end});last=end;
+    }
+    if(r.end-last>.08)out.push({start:last,end:r.end});
+  }
+  return out.filter(x=>x.end-x.start>.08);
+}
+async function transcribeArabic(video,cb){
+  const cli=aiPath('whisper-cli.exe'),model=aiPath('ggml-base.bin');
+  if(!fs.existsSync(cli)||!fs.existsSync(model))return {available:false,reason:'محرك الكلام المحلي غير موجود'};
+  const temp=fs.mkdtempSync(path.join(os.tmpdir(),'safir-whisper-'));
+  try{
+    const wav=path.join(temp,'speech.wav'), outBase=path.join(temp,'result');
+    notify(cb,'speech',28,'تحويل الصوت وتحليل الكلام العربي...');
+    await run(bin('ffmpeg'),['-y','-hide_banner','-i',video,'-vn','-ac','1','-ar','16000','-c:a','pcm_s16le',wav]);
+    notify(cb,'speech',40,'كتابة الكابشن العربي محليًا...');
+    await run(cli,['-m',model,'-f',wav,'-l','ar','-osrt','-of',outBase,'-np','-t',String(Math.max(2,Math.min(8,os.cpus().length-1)))]);
+    const srt=outBase+'.srt';
+    if(!fs.existsSync(srt))return {available:false,reason:'محرك الكلام لم ينتج نصًا'};
+    const segments=parseSrt(fs.readFileSync(srt,'utf8'));
+    return {available:true,segments,transcript:segments.map(x=>x.text).join(' ')};
+  }catch(e){
+    return {available:false,reason:'تعذر تحليل الكلام: '+e.message.split('\n')[0]};
+  }finally{
+    try{fs.rmSync(temp,{recursive:true,force:true})}catch(_){}
+  }
+}
+
 function mergeIntervals(items,gap=.05){
   const a=items.filter(x=>Number.isFinite(x.start)&&Number.isFinite(x.end)&&x.end>x.start).sort((x,y)=>x.start-y.start);
   const out=[];
@@ -113,30 +208,46 @@ async function analyzeVideo(payload,cb){
   notify(cb,'probe',4,'قراءة الفيديو الخام...');
   const meta=await probe(video);
   if(!meta.duration||!meta.width||!meta.height)throw new Error('تعذر قراءة خصائص الفيديو');
-  const removals=await detectSilence(video,meta.duration,cb);
-  const removed=removals.reduce((n,x)=>n+(x.end-x.start),0);
-  notify(cb,'plan',72,'تجهيز خطة المونتاج...');
+  const silence=await detectSilence(video,meta.duration,cb);
+  const speech=meta.hasAudio ? await transcribeArabic(video,cb) : {available:false,reason:'الفيديو بدون صوت',segments:[]};
+  const segments=speech.segments||[];
+  const semantic=speech.available ? semanticRemovalsFromSegments(segments) : [];
+  const removals=[...silence,...semantic];
+  const effectiveRemovals=removals.filter(r=>{
+    if(r.kind==='silence')return payload.settings?.removeSilence!==false;
+    if(r.kind==='semantic')return payload.settings?.removeSemantic!==false;
+    return true;
+  });
+  const kept=subtractRanges(0,meta.duration,mergeIntervals(effectiveRemovals,.04));
+  const autoClips=splitKeptRanges(kept,segments);
+  const removed=effectiveRemovals.reduce((n,x)=>n+(x.end-x.start),0);
+  const hooks=speech.available?scoreHooks(segments):[];
   const broll=scanBroll(payload.brollFolder);
-  notify(cb,'done',100,'التحليل الأساسي اكتمل');
+  notify(cb,'plan',82,'تجهيز التقطيع والكابشن...');
+  notify(cb,'done',100,speech.available?'التحليل والكابشن اكتمل':'التحليل الأساسي اكتمل');
   return {
-    version:'2.1.0-portable',
+    version:'2.2.0-arabic-ai',
     video,meta,
-    aiAvailable:false,
-    aiReason:'النسخة المحمولة تعمل بدون Python. محرك فهم الكلام سيضاف كحزمة اختيارية.',
-    transcript:'',
-    segments:[],
+    aiAvailable:speech.available,
+    aiReason:speech.available?'تحليل الكلام العربي يعمل محليًا على جهازك':speech.reason,
+    transcript:speech.transcript||'',
+    segments,
+    captions:segments.map(x=>({start:x.start,end:x.end,text:x.text})),
     words:[],
-    hooks:[],
-    highlights:[],
+    hooks,
+    highlights:hooks.slice(0,3),
     face:{x:.5,y:.45,confidence:0},
     removals,
+    autoClips,
     broll,
     summary:{
       original:meta.duration,
       estimated:Math.max(.1,meta.duration-removed),
       removed,
-      silences:removals.length,
-      semantic:0
+      silences:silence.length,
+      semantic:semantic.length,
+      captions:segments.length,
+      clips:autoClips.length
     }
   };
 }
@@ -172,9 +283,18 @@ function buildPlan(analysis,settings={}){
   const duration=analysis.meta.duration;
   const start=Math.max(0,Number(settings.rangeStart??0));
   const end=Math.min(duration,Number(settings.rangeEnd??duration));
-  let removals=settings.removeSilence===false?[]:(analysis.removals||[]).filter(r=>r.kind==='silence');
+  let removals=(analysis.removals||[]).filter(r=>{
+    if(r.kind==='silence')return settings.removeSilence!==false;
+    if(r.kind==='semantic')return settings.removeSemantic!==false;
+    return false;
+  });
   removals=mergeIntervals(removals);
-  let clips=subtractRanges(start,end,removals);
+  let clips;
+  if(start===0&&end===duration&&Array.isArray(analysis.autoClips)&&analysis.autoClips.length&&settings.removeSilence!==false){
+    clips=analysis.autoClips.map(x=>({start:x.start,end:x.end}));
+  }else{
+    clips=subtractRanges(start,end,removals);
+  }
   let t=0;
   clips=clips.map((c,i)=>{
     const dur=c.end-c.start;
@@ -208,6 +328,49 @@ async function applyBroll(base,items,target,totalDuration,temp,settings,cb){
     current=out;
   }
   return current;
+}
+
+function remapCaptions(captions,plan,analysisVideo){
+  const out=[];
+  for(const clip of plan.clips){
+    if((clip.source||analysisVideo)!==analysisVideo)continue;
+    for(const cap of captions||[]){
+      const s=Math.max(Number(cap.start),Number(clip.start)), e=Math.min(Number(cap.end),Number(clip.end));
+      if(e-s<.08)continue;
+      out.push({
+        start:Number(clip.outputStart)+(s-Number(clip.start)),
+        end:Number(clip.outputStart)+(e-Number(clip.start)),
+        text:String(cap.text||'').trim()
+      });
+    }
+  }
+  return out;
+}
+function assTime(sec){
+  sec=Math.max(0,Number(sec)||0);
+  const h=Math.floor(sec/3600),m=Math.floor((sec%3600)/60),s=Math.floor(sec%60),cs=Math.floor((sec-Math.floor(sec))*100);
+  return `${h}:${String(m).padStart(2,'0')}:${String(s).padStart(2,'0')}.${String(cs).padStart(2,'0')}`;
+}
+function assEscape(s){return String(s||'').replace(/\\/g,'\\\\').replace(/\{/g,'\\{').replace(/\}/g,'\\}').replace(/\n/g,'\\N')}
+function ffFilterPath(p){return String(p).replace(/\\/g,'/').replace(/:/g,'\\:').replace(/'/g,"\\'")}
+async function applyCaptions(base,captions,plan,analysisVideo,temp,settings,cb){
+  if(settings.captions===false||!captions?.length)return base;
+  const mapped=remapCaptions(captions,plan,analysisVideo);
+  if(!mapped.length)return base;
+  const target=outputSize(settings.format||'9:16');
+  const ass=path.join(temp,'captions.ass'),out=path.join(temp,'captioned.mp4');
+  const font=String(settings.fontName||'FF Shamel Family').replace(/,/g,' ').trim()||'Arial';
+  const size=Math.max(38,Math.min(110,Number(settings.captionSize||74)));
+  const marginV=settings.format==='9:16'?150:70;
+  let txt='[Script Info]\nScriptType: v4.00+\nPlayResX='+target.w+'\nPlayResY='+target.h+'\nWrapStyle: 2\n\n';
+  txt+='[V4+ Styles]\nFormat: Name,Fontname,Fontsize,PrimaryColour,SecondaryColour,OutlineColour,BackColour,Bold,Italic,Underline,StrikeOut,ScaleX,ScaleY,Spacing,Angle,BorderStyle,Outline,Shadow,Alignment,MarginL,MarginR,MarginV,Encoding\n';
+  txt+=`Style: Safir,${font},${size},&H00FFFFFF,&H0000D7FF,&H00130F09,&H64000000,-1,0,0,0,100,100,0,0,1,5,1,2,70,70,${marginV},1\n\n`;
+  txt+='[Events]\nFormat: Layer,Start,End,Style,Name,MarginL,MarginR,MarginV,Effect,Text\n';
+  for(const x of mapped)txt+=`Dialogue: 0,${assTime(x.start)},${assTime(x.end)},Safir,,0,0,0,,${assEscape(x.text)}\n`;
+  fs.writeFileSync(ass,txt,'utf8');
+  notify(cb,'captions',92,'تركيب الكابشن العربي...');
+  await run(bin('ffmpeg'),['-y','-hide_banner','-i',base,'-vf',`ass='${ffFilterPath(ass)}'`,'-map','0:v','-map','0:a?','-c:v','libx264','-preset',settings.quality==='fast'?'veryfast':'medium','-crf','19','-pix_fmt','yuv420p','-c:a','copy','-movflags','+faststart',out]);
+  return out;
 }
 
 async function applyAudio(base,items,totalDuration,temp,cb,hasBaseAudio){
@@ -281,6 +444,7 @@ async function renderVideo(payload,cb){
       const mixed=await applyAudio(working,plan.audio,plan.duration,temp,cb,hasAudio);
       working=mixed.file;hasAudio=mixed.hasAudio;
     }
+    working=await applyCaptions(working,analysis.captions||analysis.segments||[],plan,analysis.video,temp,settings,cb);
 
     const logo=settings.logo&&fs.existsSync(settings.logo)?settings.logo:null;
     const clean=hasAudio&&settings.cleanAudio!==false;
@@ -332,4 +496,4 @@ async function createReels(payload,cb){
   return outputs;
 }
 
-module.exports={analyzeVideo,renderVideo,createReels,buildPlan,mergeIntervals,probeMedia};
+module.exports={analyzeVideo,renderVideo,createReels,buildPlan,mergeIntervals,probeMedia,parseSrt,transcribeArabic};
