@@ -30,6 +30,18 @@ jobs:
         working-directory: safir-video-build
         run: npm run check
 
+      - name: Build local Arabic speech engine
+        shell: pwsh
+        run: |
+          git clone --depth 1 --branch v1.9.4 https://github.com/ggml-org/whisper.cpp.git whisper-src
+          cmake -S whisper-src -B whisper-src/build -DWHISPER_BUILD_TESTS=OFF -DWHISPER_BUILD_SERVER=OFF -DGGML_NATIVE=OFF -DBUILD_SHARED_LIBS=OFF
+          cmake --build whisper-src/build --config Release --target whisper-cli -j 2
+          New-Item -ItemType Directory -Force -Path safir-video-build/ai | Out-Null
+          Copy-Item whisper-src/build/bin/Release/whisper-cli.exe safir-video-build/ai/whisper-cli.exe
+          curl.exe -L --retry 3 --retry-delay 3 -o safir-video-build/ai/ggml-base.bin "https://huggingface.co/ggerganov/whisper.cpp/resolve/main/ggml-base.bin?download=true"
+          if ((Get-Item safir-video-build/ai/ggml-base.bin).Length -lt 100000000) { throw "Whisper model download is incomplete" }
+          & safir-video-build/ai/whisper-cli.exe -h | Out-Null
+
       - name: Smoke test manual timeline render
         working-directory: safir-video-build
         run: node tests/manual-timeline-smoke.js
