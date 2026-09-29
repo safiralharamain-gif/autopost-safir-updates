@@ -18,8 +18,8 @@ function updatePreviewFormat(){
   }
   window.safirTimeline?.setFormat?.(state.format);
 }
-$('.format').forEach(b=>b.onclick=()=>{
-  $('.format').forEach(x=>x.classList.remove('active'));
+$$('.format').forEach(b=>b.onclick=()=>{
+  $$('.format').forEach(x=>x.classList.remove('active'));
   b.classList.add('active');
   state.format=b.dataset.format;
   updatePreviewFormat();
@@ -243,7 +243,7 @@ $('#openProject').onclick=async()=>{
     $('#captions').checked=s.captions!==false;$('#quality').value=s.quality||'balanced';
     $('#fontName').value=s.fontName||'FF Shamel Family';$('#captionSize').value=s.captionSize||74;
     $('#captionSizeValue').textContent=s.captionSize||74;
-    $('.format').forEach(b=>b.classList.toggle('active',b.dataset.format===state.format));
+    $$('.format').forEach(b=>b.classList.toggle('active',b.dataset.format===state.format));
     updatePreviewFormat();
   }
   if(p.analysis){state.analysis=p.analysis;renderAnalysis();$('#results').classList.remove('hidden');$('#exportBtn').disabled=false;$('#exportBtn2').disabled=false}
