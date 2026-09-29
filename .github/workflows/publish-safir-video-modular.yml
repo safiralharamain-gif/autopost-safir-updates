@@ -21,15 +21,15 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: |
           mkdir -p release
-          gh run download 36574564377 --repo safiralharamain-gif/autopost-safir-updates --name safir-video-core --dir release/core
-          gh run download 36574564377 --repo safiralharamain-gif/autopost-safir-updates --name safir-arabic-ai-pack --dir release/ai
-          gh run download 36574564377 --repo safiralharamain-gif/autopost-safir-updates --name safir-video-patch --dir release/patch
+          gh run download 36644318445 --repo safiralharamain-gif/autopost-safir-updates --name safir-video-core --dir release/core
+          gh run download 36644318445 --repo safiralharamain-gif/autopost-safir-updates --name safir-arabic-ai-pack --dir release/ai
+          gh run download 36644318445 --repo safiralharamain-gif/autopost-safir-updates --name safir-video-patch --dir release/patch
           find release -maxdepth 2 -type f -printf '%p %s bytes\n'
 
       - name: Publish modular release
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          TAG="safir-video-modular-v2.3.1"
+          TAG="safir-video-modular-v2.4.0"
           gh release delete "$TAG" --repo safiralharamain-gif/autopost-safir-updates --cleanup-tag -y || true
-          gh release create "$TAG"             release/core/SAFIR_VIDEO_CORE_v2.3.1.zip             release/ai/SAFIR_ARABIC_AI_PACK.zip             release/patch/SAFIR_PATCH_v2.3.1.zip             --repo safiralharamain-gif/autopost-safir-updates             --title "سفير الفيديو الذكي - النظام الموديولار v2.3.1"             --notes "إصلاح الاستيراد + نظام تحديثات منفصلة. نزّل Core مرة واحدة. نزّل AI Pack مرة واحدة إذا كنت تحتاج Whisper والكابشن العربي. بعد ذلك استخدم ملفات Patch الصغيرة فقط."
+          gh release create "$TAG"             release/core/SAFIR_VIDEO_CORE_v2.4.0.zip             release/ai/SAFIR_ARABIC_AI_PACK.zip             release/patch/SAFIR_PATCH_v2.4.0.zip             --repo safiralharamain-gif/autopost-safir-updates             --title "سفير الفيديو الذكي - النظام الموديولار v2.4.0"             --notes "نسخة سفير المبسطة: شاشة واحدة فقط. اختار الفيديو واضغط جهّز الفيديو. البرنامج يقص السكوت واللخبطة، يضيف انتقالات Dissolve خفيفة، ويكتب الكلام بالعربي بخط FF Shamel Family. Core وAI Pack للتثبيت مرة واحدة فقط، وبعدها التحديثات Patch صغيرة."
