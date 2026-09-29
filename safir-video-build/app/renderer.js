@@ -49,6 +49,7 @@ async function analyze(){
   try{
     state.analysis=await window.safir.analyzeVideo({video:state.video,brollFolder:state.brollFolder,useAI:true});
     renderAnalysis();$('#results').classList.remove('hidden');$('#exportBtn').disabled=false;$('#exportBtn2').disabled=false;
+    window.dispatchEvent(new CustomEvent('safir-analysis-ready',{detail:{analysis:state.analysis,video:state.video,settings:currentSettings()}}));
     toast(state.analysis.aiAvailable?'التحليل الذكي اكتمل':'التحليل الأساسي اكتمل');
   }catch(e){toast('خطأ: '+e.message)}
   finally{$('#analyzeBtn').disabled=false}
@@ -160,7 +161,8 @@ $('#createReels').onclick=async()=>{
 };
 
 $('#saveProject').onclick=async()=>{
-  const p=await window.safir.saveProject({...state,settings:currentSettings()});
+  const timeline=window.safirTimeline?.getState?.()||null;
+  const p=await window.safir.saveProject({...state,settings:currentSettings(),timeline});
   if(p)toast('تم حفظ المشروع');
 };
 
@@ -176,6 +178,17 @@ $('#openProject').onclick=async()=>{
     $('#fontName').value=s.fontName||'FF Shamel Family';$('#captionSize').value=s.captionSize||74;
     $('#captionSizeValue').textContent=s.captionSize||74;
   }
-  if(p.analysis){state.analysis=p.analysis;renderAnalysis();$('#results').classList.remove('hidden');$('#exportBtn').disabled=false}
+  if(p.analysis){state.analysis=p.analysis;renderAnalysis();$('#results').classList.remove('hidden');$('#exportBtn').disabled=false;$('#exportBtn2').disabled=false}
+  if(p.timeline) setTimeout(()=>window.safirTimeline?.restore?.(p.timeline),0);
+  else if(p.analysis) setTimeout(()=>window.dispatchEvent(new CustomEvent('safir-analysis-ready',{detail:{analysis:p.analysis,video:p.video,settings:p.settings||currentSettings()}})),0)
   toast('تم فتح المشروع');
+};
+
+window.safirApp={
+  getState:()=>state,
+  getSettings:()=>currentSettings(),
+  toast,
+  sec,
+  loadVideo,
+  renderAnalysis
 };
