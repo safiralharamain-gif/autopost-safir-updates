@@ -42,6 +42,10 @@ jobs:
           if ((Get-Item safir-video-build/ai/ggml-base.bin).Length -lt 100000000) { throw "Whisper model download is incomplete" }
           & safir-video-build/ai/whisper-cli.exe -h | Out-Null
 
+      - name: Smoke test local Arabic speech engine
+        working-directory: safir-video-build
+        run: node tests/whisper-engine-smoke.js
+
       - name: Smoke test manual timeline render
         working-directory: safir-video-build
         run: node tests/manual-timeline-smoke.js
