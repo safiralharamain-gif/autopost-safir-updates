@@ -1,0 +1,52 @@
+name: Build SAFIR Video Portable
+
+on:
+  push:
+    branches:
+      - build/safir-video-portable-v3
+    paths:
+      - 'safir-video-build/**'
+      - '.github/workflows/build-safir-video-portable.yml'
+  workflow_dispatch:
+
+jobs:
+  build-windows:
+    runs-on: windows-latest
+    timeout-minutes: 30
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      - name: Install dependencies
+        working-directory: safir-video-build
+        run: npm install --no-audit --no-fund
+
+      - name: Validate JavaScript
+        working-directory: safir-video-build
+        run: npm run check
+
+      - name: Build Windows Portable EXE
+        working-directory: safir-video-build
+        env:
+          CSC_IDENTITY_AUTO_DISCOVERY: 'false'
+        run: npm run pack:win
+
+      - name: Verify EXE exists
+        shell: pwsh
+        run: |
+          $files = Get-ChildItem -Path "safir-video-build/dist" -Filter "*.exe"
+          if (-not $files) { throw "No EXE was produced" }
+          $files | ForEach-Object { Write-Host $_.FullName $_.Length }
+
+      - name: Upload Windows Portable
+        uses: actions/upload-artifact@v4
+        with:
+          name: safir-video-portable-windows
+          path: safir-video-build/dist/*.exe
+          if-no-files-found: error
+          retention-days: 7
