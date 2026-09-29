@@ -30,7 +30,13 @@ $('#pickVideo').onclick=chooseVideo;
 const dz=$('#dropZone');
 dz.addEventListener('dragover',e=>{e.preventDefault();dz.classList.add('drag')});
 dz.addEventListener('dragleave',()=>dz.classList.remove('drag'));
-dz.addEventListener('drop',e=>{e.preventDefault();dz.classList.remove('drag');const f=e.dataTransfer.files?.[0];if(f)loadVideo(f.path)});
+dz.addEventListener('drop',e=>{
+  e.preventDefault();dz.classList.remove('drag');
+  const f=e.dataTransfer.files?.[0];
+  if(!f)return;
+  const p=window.safir.getFilePath?.(f);
+  if(p)loadVideo(p); else toast('تعذر قراءة مسار الملف');
+});
 
 function loadVideo(p){
   state.video=p;state.analysis=null;state.rejectedSegments=[];state.hookId=null;
