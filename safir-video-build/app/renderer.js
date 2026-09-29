@@ -35,6 +35,7 @@ function loadVideo(p){
   state.video=p;state.analysis=null;state.rejectedSegments=[];state.hookId=null;
   $('#dropZone').classList.add('hidden');$('#videoWrap').classList.remove('hidden');
   $('#preview').src=`file:///${p.replace(/\\/g,'/')}`;
+  ensureLiveCaption($('#videoWrap'));
   $('#videoName').textContent=p.split(/[\\/]/).pop();$('#videoMeta').textContent='جاهز للتحليل';
   $('#analyzeBtn').disabled=false;$('#exportBtn').disabled=true;$('#results').classList.add('hidden');
   updatePreviewFormat();
@@ -54,7 +55,10 @@ function currentSettings(){return {
   rejectedSegments:state.rejectedSegments,
   logo:state.logo,
   fontName:$('#fontName').value,
-  captionSize:Number($('#captionSize').value)
+  captionSize:Number($('#captionSize').value),
+  captionMode:$('#captionMode')?.value||'word',
+  captionWords:Number($('#captionWords')?.value||4),
+  captionHighlight:$('#captionHighlight')?.value||'#E4B75D'
 }}
 
 async function analyze(){
@@ -114,6 +118,39 @@ function renderAnalysis(){
 }
 
 function escapeHtml(s=''){return String(s).replace(/[&<>'"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;',"'":'&#39;','"':'&quot;'}[c]))}
+function ensureLiveCaption(container){
+  if(!container)return null;
+  let el=container.querySelector('.live-caption-overlay');
+  if(!el){
+    el=document.createElement('div');
+    el.className='live-caption-overlay';
+    container.appendChild(el);
+  }
+  return el;
+}
+function captionAtTime(time){
+  const a=state.analysis;if(!a)return '';
+  const mode=$('#captionMode')?.value||'word';
+  if(mode==='word'&&Array.isArray(a.words)&&a.words.length){
+    const idx=a.words.findIndex(w=>time>=Number(w.start)&&time<=Number(w.end));
+    if(idx<0)return '';
+    const count=Math.max(2,Math.min(6,Number($('#captionWords')?.value||4)));
+    const gs=Math.floor(idx/count)*count,group=a.words.slice(gs,gs+count);
+    return group.map((w,j)=>{
+      const active=(gs+j)===idx;
+      return `<span class="${active?'active-word':''}">${escapeHtml(w.text)}</span>`;
+    }).join(' ');
+  }
+  const s=(a.segments||[]).find(x=>time>=Number(x.start)&&time<=Number(x.end));
+  return s?escapeHtml(s.text):'';
+}
+function updateLiveCaption(container,time){
+  const el=ensureLiveCaption(container);if(!el)return;
+  el.innerHTML=captionAtTime(time);
+  el.style.setProperty('--caption-highlight',$('#captionHighlight')?.value||'#E4B75D');
+  el.style.fontSize=`${Math.max(18,Number($('#captionSize')?.value||74)*0.36)}px`;
+  el.classList.toggle('hidden',!el.innerHTML||!$('#captions').checked);
+}
 
 function renderBroll(){
   const el=$('#brollList'),arr=state.analysis?.broll||[];
@@ -149,7 +186,12 @@ $('#pickLogo').onclick=async()=>{
   const p=await window.safir.pickLogo();
   if(p){state.logo=p;$('#logoPath').value=p;toast('تم حفظ اللوجو للمشروع')}
 };
-$('#captionSize').oninput=e=>$('#captionSizeValue').textContent=e.target.value;
+$('#captionSize').oninput=e=>{ $('#captionSizeValue').textContent=e.target.value; updateLiveCaption($('#videoWrap'),$('#preview').currentTime||0); };
+$('#captionMode').onchange=()=>updateLiveCaption($('#videoWrap'),$('#preview').currentTime||0);
+$('#captionWords').onchange=()=>updateLiveCaption($('#videoWrap'),$('#preview').currentTime||0);
+$('#captionHighlight').oninput=()=>updateLiveCaption($('#videoWrap'),$('#preview').currentTime||0);
+$('#captions').onchange=()=>updateLiveCaption($('#videoWrap'),$('#preview').currentTime||0);
+$('#preview').addEventListener('timeupdate',()=>updateLiveCaption($('#videoWrap'),$('#preview').currentTime||0));
 
 $('#applyCommand').onclick=()=>{
   const c=$('#command').value.trim();if(!c)return;const applied=[];
@@ -210,6 +252,8 @@ window.safirApp={
   sec,
   loadVideo,
   renderAnalysis,
-  updatePreviewFormat
+  updatePreviewFormat,
+  updateLiveCaption,
+  ensureLiveCaption
 };
 updatePreviewFormat();
