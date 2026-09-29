@@ -1,0 +1,32 @@
+{
+  "name": "safir-ai-video-studio",
+  "version": "2.1.0",
+  "description": "سفير الفيديو الذكي - محرر فيديو آلي بدون Timeline",
+  "main": "app/main.js",
+  "author": "Safir Al-Haramain",
+  "license": "UNLICENSED",
+  "scripts": {
+    "start": "electron .",
+    "check": "node --check app/main.js && node --check app/preload.js && node --check app/engine.js && node --check app/renderer.js",
+    "pack:win": "electron-builder --win portable"
+  },
+  "dependencies": {
+    "ffmpeg-static": "5.2.0",
+    "ffprobe-static": "3.1.0"
+  },
+  "devDependencies": {
+    "electron": "38.1.2",
+    "electron-builder": "26.0.12"
+  },
+  "build": {
+    "appId": "com.safir.video.ai",
+    "productName": "سفير الفيديو الذكي",
+    "files": ["app/**/*","ai/**/*","assets/**/*","package.json"],
+    "asarUnpack": ["node_modules/ffmpeg-static/**/*","node_modules/ffprobe-static/**/*","ai/**/*"],
+    "win": {"target":"portable","artifactName":"سفير الفيديو الذكي.exe"},
+    "portable": {"artifactName":"سفير الفيديو الذكي.exe"},
+    "artifactName": "سفير الفيديو الذكي.exe",
+    "compression": "maximum",
+    "directories": {"output":"dist"}
+  }
+}
