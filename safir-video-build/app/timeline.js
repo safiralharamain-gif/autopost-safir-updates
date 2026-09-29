@@ -39,17 +39,35 @@
     if(!detail?.analysis)return;
     tl.analysis=detail.analysis;tl.video=detail.video||detail.analysis.video;tl.settings=detail.settings||{};
     if(!force&&tl.videoClips.length&&tl.video===tl.analysis.video){render();return}
-    const removals=tl.settings.removeSilence===false?[]:(tl.analysis.removals||[]).filter(r=>r.kind==='silence');
-    const kept=subtract(0,tl.analysis.meta.duration,removals);
+    const useAuto=Array.isArray(tl.analysis.autoClips)&&tl.analysis.autoClips.length>0;
+    let kept;
+    if(useAuto){
+      kept=tl.analysis.autoClips.map(x=>({start:Number(x.start),end:Number(x.end)}));
+    }else{
+      const removals=(tl.analysis.removals||[]).filter(r=>{
+        if(r.kind==='silence')return tl.settings.removeSilence!==false;
+        if(r.kind==='semantic')return tl.settings.removeSemantic!==false;
+        return false;
+      });
+      kept=subtract(0,tl.analysis.meta.duration,removals);
+    }
     tl.videoClips=kept.map((x,i)=>({id:id('v'),source:tl.video,start:x.start,end:x.end,label:`مقطع ${i+1}`,kind:'video'}));
     tl.broll=[];tl.audio=[];tl.selected=tl.videoClips[0]?{type:'video',id:tl.videoClips[0].id}:null;tl.cursor=0;
     recalc();render();showWorkspace();
+  }
+  function applyFormatPreview(){
+    const format=window.safirApp?.getSettings?.().format||tl.settings?.format||'9:16';
+    const wrap=$('#timelinePreview')?.parentElement;
+    if(!wrap)return;
+    wrap.classList.remove('format-9-16','format-16-9','format-1-1');
+    wrap.classList.add('format-'+String(format).replace(':','-'));
   }
   function showWorkspace(){
     $('#timelineEmpty')?.classList.add('hidden');
     $('#timelineWorkspace')?.classList.remove('hidden');
     const p=$('#timelinePreview');
     if(p&&tl.video&&!p.src){p.src=fileUrl(tl.video)}
+    applyFormatPreview();
     if($('#timelineExport'))$('#timelineExport').disabled=!tl.videoClips.length;
   }
   function fileUrl(p){return 'file:///'+String(p||'').replace(/\\/g,'/')}
@@ -263,5 +281,10 @@
     }
   });
 
-  window.safirTimeline={getState,restore,reset:()=>{const a=window.safirApp?.getState?.();if(a?.analysis)initFromAuto({analysis:a.analysis,video:a.video,settings:window.safirApp.getSettings()},true)}};
+  window.safirTimeline={
+    getState,
+    restore,
+    setFormat:(format)=>{tl.settings={...(tl.settings||{}),format};applyFormatPreview()},
+    reset:()=>{const a=window.safirApp?.getState?.();if(a?.analysis)initFromAuto({analysis:a.analysis,video:a.video,settings:window.safirApp.getSettings()},true)}
+  };
 })();
