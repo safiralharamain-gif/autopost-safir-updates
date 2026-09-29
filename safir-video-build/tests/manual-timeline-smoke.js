@@ -34,12 +34,19 @@ function run(args) {
     segments: [],
     hooks: [],
     broll: [],
+    captions: [
+      { start: 0.3, end: 1.4, text: 'اختبار كابشن عربي' },
+      { start: 4.2, end: 5.4, text: 'سفير الفيديو الذكي' }
+    ],
     summary: { original: meta.duration, estimated: meta.duration, removed: 0 }
   };
 
   const settings = {
     format: '1:1',
     cleanAudio: false,
+    captions: true,
+    fontName: 'Arial',
+    captionSize: 58,
     quality: 'fast',
     manualTimeline: {
       videoClips: [
