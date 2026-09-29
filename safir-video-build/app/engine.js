@@ -98,6 +98,66 @@ function parseSrt(text){
   }
   return out;
 }
+function parseWhisperJson(input){
+  const j=typeof input==='string'?JSON.parse(input):input;
+  const segments=[];
+  const words=[];
+  const tx=Array.isArray(j?.transcription)?j.transcription:[];
+  for(const seg of tx){
+    const start=Number(seg?.offsets?.from||0)/1000;
+    const end=Number(seg?.offsets?.to||0)/1000;
+    const text=String(seg?.text||'').trim();
+    if(text)segments.push({id:segments.length+1,start,end,text,importance:0.45});
+    const toks=Array.isArray(seg?.tokens)?seg.tokens:[];
+    let current=null, made=0;
+    const flush=()=>{
+      if(current&&current.text){
+        current.text=current.text.trim();
+        if(current.text&&!/^<\|.*\|>$/.test(current.text)){
+          current.id=words.length+1;
+          words.push(current);made++;
+        }
+      }
+      current=null;
+    };
+    for(const tok of toks){
+      const raw=String(tok?.text||'');
+      if(!raw||/^<\|.*\|>$/.test(raw.trim()))continue;
+      const piece=raw.trim();
+      if(!piece)continue;
+      const ts=Number(tok?.offsets?.from)/1000, te=Number(tok?.offsets?.to)/1000;
+      if(!Number.isFinite(ts)||!Number.isFinite(te)||te<=ts)continue;
+      const punct=/^[،؛؟.!?,:…]+$/u.test(piece);
+      const startsNew=/^\s/u.test(raw);
+      if(punct&&current){
+        current.text+=piece;current.end=Math.max(current.end,te);continue;
+      }
+      if(!current||startsNew){
+        flush();
+        current={text:piece,start:ts,end:te,confidence:Number(tok?.p||0)};
+      }else{
+        current.text+=piece;
+        current.end=Math.max(current.end,te);
+        current.confidence=Math.max(current.confidence,Number(tok?.p||0));
+      }
+    }
+    flush();
+    if(made===0&&text){
+      const ws=text.split(/\s+/u).filter(Boolean);
+      const dur=Math.max(.08,end-start);
+      const totalChars=Math.max(1,ws.reduce((n,w)=>n+w.length,0));
+      let cur=start;
+      for(const w of ws){
+        const wd=Math.max(.08,dur*(w.length/totalChars));
+        const we=Math.min(end,cur+wd);
+        words.push({id:words.length+1,text:w,start:cur,end:we,confidence:.5});
+        cur=we;
+      }
+      if(words.length)words[words.length-1].end=end;
+    }
+  }
+  return {segments,words,transcript:segments.map(x=>x.text).join(' ')};
+}
 function normalizeArabic(s){
   return String(s||'')
     .replace(/[\u064B-\u065F\u0670]/g,'')
@@ -152,20 +212,30 @@ function splitKeptRanges(kept,segments){
 }
 async function transcribeArabic(video,cb){
   const cli=aiPath('whisper-cli.exe'),model=aiPath('ggml-base.bin');
-  if(!fs.existsSync(cli)||!fs.existsSync(model))return {available:false,reason:'محرك الكلام المحلي غير موجود'};
+  if(!fs.existsSync(cli)||!fs.existsSync(model))return {available:false,reason:'محرك الكلام المحلي غير موجود',segments:[],words:[]};
   const temp=fs.mkdtempSync(path.join(os.tmpdir(),'safir-whisper-'));
   try{
     const wav=path.join(temp,'speech.wav'), outBase=path.join(temp,'result');
     notify(cb,'speech',28,'تحويل الصوت وتحليل الكلام العربي...');
     await run(bin('ffmpeg'),['-y','-hide_banner','-i',video,'-vn','-ac','1','-ar','16000','-c:a','pcm_s16le',wav]);
-    notify(cb,'speech',40,'كتابة الكابشن العربي محليًا...');
-    await run(cli,['-m',model,'-f',wav,'-l','ar','-osrt','-of',outBase,'-np','-t',String(Math.max(2,Math.min(8,os.cpus().length-1)))]);
+    notify(cb,'speech',40,'تحديد توقيت كل كلمة...');
+    await run(cli,['-m',model,'-f',wav,'-l','ar','-ojf','-osrt','-sow','-of',outBase,'-np','-t',String(Math.max(2,Math.min(8,os.cpus().length-1)))]);
+    const jsonFile=outBase+'.json';
+    if(fs.existsSync(jsonFile)){
+      const parsed=parseWhisperJson(fs.readFileSync(jsonFile,'utf8'));
+      return {available:true,...parsed};
+    }
     const srt=outBase+'.srt';
-    if(!fs.existsSync(srt))return {available:false,reason:'محرك الكلام لم ينتج نصًا'};
+    if(!fs.existsSync(srt))return {available:false,reason:'محرك الكلام لم ينتج نصًا',segments:[],words:[]};
     const segments=parseSrt(fs.readFileSync(srt,'utf8'));
-    return {available:true,segments,transcript:segments.map(x=>x.text).join(' ')};
+    const words=[];
+    for(const s of segments){
+      const ws=s.text.split(/\s+/u).filter(Boolean),dur=Math.max(.08,s.end-s.start),slice=dur/Math.max(1,ws.length);
+      ws.forEach((w,i)=>words.push({id:words.length+1,text:w,start:s.start+i*slice,end:i===ws.length-1?s.end:s.start+(i+1)*slice,confidence:.5}));
+    }
+    return {available:true,segments,words,transcript:segments.map(x=>x.text).join(' ')};
   }catch(e){
-    return {available:false,reason:'تعذر تحليل الكلام: '+e.message.split('\n')[0]};
+    return {available:false,reason:'تعذر تحليل الكلام: '+e.message.split('\n')[0],segments:[],words:[]};
   }finally{
     try{fs.rmSync(temp,{recursive:true,force:true})}catch(_){}
   }
@@ -233,7 +303,7 @@ async function analyzeVideo(payload,cb){
     transcript:speech.transcript||'',
     segments,
     captions:segments.map(x=>({start:x.start,end:x.end,text:x.text})),
-    words:[],
+    words:speech.words||[],
     hooks,
     highlights:hooks.slice(0,3),
     face:{x:.5,y:.45,confidence:0},
@@ -336,13 +406,36 @@ function remapCaptions(captions,plan,analysisVideo){
     if((clip.source||analysisVideo)!==analysisVideo)continue;
     for(const cap of captions||[]){
       const s=Math.max(Number(cap.start),Number(clip.start)), e=Math.min(Number(cap.end),Number(clip.end));
-      if(e-s<.08)continue;
+      if(e-s<.06)continue;
       out.push({
         start:Number(clip.outputStart)+(s-Number(clip.start)),
         end:Number(clip.outputStart)+(e-Number(clip.start)),
-        text:String(cap.text||'').trim()
+        text:String(cap.text||'').trim(),
+        confidence:Number(cap.confidence||0)
       });
     }
+  }
+  return out;
+}
+function assColor(hex,fallback='&H005DB7E4'){
+  const m=String(hex||'').trim().match(/^#?([0-9a-f]{6})$/i);
+  if(!m)return fallback;
+  const h=m[1],r=h.slice(0,2),g=h.slice(2,4),b=h.slice(4,6);
+  return '&H00'+b+g+r;
+}
+function buildWordHighlightEvents(words,groupSize=4,highlight='&H005DB7E4'){
+  const out=[];
+  for(let i=0;i<words.length;i++){
+    const w=words[i];
+    const gs=Math.floor(i/groupSize)*groupSize, ge=Math.min(words.length,gs+groupSize);
+    const group=words.slice(gs,ge);
+    const parts=group.map((x,j)=>{
+      const active=(gs+j)===i;
+      const color=active?highlight:'&H00FFFFFF';
+      const weight=active?'\\b1':'\\b0';
+      return `{\\c${color}${weight}}${assEscape(x.text)}`;
+    });
+    out.push({start:w.start,end:w.end,text:parts.join(' ')});
   }
   return out;
 }
@@ -353,22 +446,27 @@ function assTime(sec){
 }
 function assEscape(s){return String(s||'').replace(/\\/g,'\\\\').replace(/\{/g,'\\{').replace(/\}/g,'\\}').replace(/\n/g,'\\N')}
 function ffFilterPath(p){return String(p).replace(/\\/g,'/').replace(/:/g,'\\:').replace(/'/g,"\\'")}
-async function applyCaptions(base,captions,plan,analysisVideo,temp,settings,cb){
-  if(settings.captions===false||!captions?.length)return base;
-  const mapped=remapCaptions(captions,plan,analysisVideo);
+async function applyCaptions(base,analysis,plan,temp,settings,cb){
+  if(settings.captions===false)return base;
+  const useWords=settings.captionMode!=='sentence'&&Array.isArray(analysis.words)&&analysis.words.length;
+  const sourceItems=useWords?analysis.words:(analysis.captions||analysis.segments||[]);
+  if(!sourceItems?.length)return base;
+  const mapped=remapCaptions(sourceItems,plan,analysis.video);
   if(!mapped.length)return base;
   const target=outputSize(settings.format||'9:16');
   const ass=path.join(temp,'captions.ass'),out=path.join(temp,'captioned.mp4');
   const font=String(settings.fontName||'FF Shamel Family').replace(/,/g,' ').trim()||'Arial';
   const size=Math.max(38,Math.min(110,Number(settings.captionSize||74)));
-  const marginV=settings.format==='9:16'?150:70;
-  let txt='[Script Info]\nScriptType: v4.00+\nPlayResX='+target.w+'\nPlayResY='+target.h+'\nWrapStyle: 2\n\n';
+  const marginV=settings.format==='9:16'?155:70;
+  const highlight=assColor(settings.captionHighlight||'#E4B75D');
+  const events=useWords?buildWordHighlightEvents(mapped,Math.max(2,Math.min(6,Number(settings.captionWords||4))),highlight):mapped.map(x=>({...x,text:assEscape(x.text)}));
+  let txt='[Script Info]\nScriptType: v4.00+\nPlayResX='+target.w+'\nPlayResY='+target.h+'\nWrapStyle: 2\nScaledBorderAndShadow: yes\n\n';
   txt+='[V4+ Styles]\nFormat: Name,Fontname,Fontsize,PrimaryColour,SecondaryColour,OutlineColour,BackColour,Bold,Italic,Underline,StrikeOut,ScaleX,ScaleY,Spacing,Angle,BorderStyle,Outline,Shadow,Alignment,MarginL,MarginR,MarginV,Encoding\n';
-  txt+=`Style: Safir,${font},${size},&H00FFFFFF,&H0000D7FF,&H00130F09,&H64000000,-1,0,0,0,100,100,0,0,1,5,1,2,70,70,${marginV},1\n\n`;
+  txt+=`Style: Safir,${font},${size},&H00FFFFFF,${highlight},&H00130F09,&H78000000,-1,0,0,0,100,100,0,0,1,6,1,2,70,70,${marginV},1\n\n`;
   txt+='[Events]\nFormat: Layer,Start,End,Style,Name,MarginL,MarginR,MarginV,Effect,Text\n';
-  for(const x of mapped)txt+=`Dialogue: 0,${assTime(x.start)},${assTime(x.end)},Safir,,0,0,0,,${assEscape(x.text)}\n`;
+  for(const x of events)txt+=`Dialogue: 0,${assTime(x.start)},${assTime(x.end)},Safir,,0,0,0,,${useWords?x.text:assEscape(x.text)}\n`;
   fs.writeFileSync(ass,txt,'utf8');
-  notify(cb,'captions',92,'تركيب الكابشن العربي...');
+  notify(cb,'captions',92,useWords?'تركيب الكابشن كلمة بكلمة...':'تركيب الكابشن العربي...');
   await run(bin('ffmpeg'),['-y','-hide_banner','-i',base,'-vf',`ass='${ffFilterPath(ass)}'`,'-map','0:v','-map','0:a?','-c:v','libx264','-preset',settings.quality==='fast'?'veryfast':'medium','-crf','19','-pix_fmt','yuv420p','-c:a','copy','-movflags','+faststart',out]);
   return out;
 }
@@ -444,7 +542,7 @@ async function renderVideo(payload,cb){
       const mixed=await applyAudio(working,plan.audio,plan.duration,temp,cb,hasAudio);
       working=mixed.file;hasAudio=mixed.hasAudio;
     }
-    working=await applyCaptions(working,analysis.captions||analysis.segments||[],plan,analysis.video,temp,settings,cb);
+    working=await applyCaptions(working,analysis,plan,temp,settings,cb);
 
     const logo=settings.logo&&fs.existsSync(settings.logo)?settings.logo:null;
     const clean=hasAudio&&settings.cleanAudio!==false;
@@ -496,4 +594,4 @@ async function createReels(payload,cb){
   return outputs;
 }
 
-module.exports={analyzeVideo,renderVideo,createReels,buildPlan,mergeIntervals,probeMedia,parseSrt,transcribeArabic};
+module.exports={analyzeVideo,renderVideo,createReels,buildPlan,mergeIntervals,probeMedia,parseSrt,parseWhisperJson,transcribeArabic,buildWordHighlightEvents};
