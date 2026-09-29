@@ -59,6 +59,7 @@ function run(args) {
     fontName: 'Arial',
     captionSize: 58,
     quality: 'fast',
+    transitionDuration: 0.12,
     manualTimeline: {
       videoClips: [
         { source: base, start: 0, end: 2 },
