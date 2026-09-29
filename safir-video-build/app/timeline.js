@@ -67,6 +67,7 @@
     $('#timelineWorkspace')?.classList.remove('hidden');
     const p=$('#timelinePreview');
     if(p&&tl.video&&!p.src){p.src=fileUrl(tl.video)}
+    if(p)window.safirApp?.ensureLiveCaption?.(p.parentElement);
     applyFormatPreview();
     if($('#timelineExport'))$('#timelineExport').disabled=!tl.videoClips.length;
   }
@@ -138,6 +139,7 @@
     }
     renderAbsoluteTrack($('#tlBrollTrack'),tl.broll,'broll');
     renderAbsoluteTrack($('#tlAudioTrack'),tl.audio,'audio');
+    renderCaptionTrack();
     renderInspector();updateCursorUI();
     if($('#timelineExport'))$('#timelineExport').disabled=!tl.videoClips.length;
   }
@@ -150,6 +152,41 @@
       node.style.position='absolute';node.style.left=`${start/tl.total*100}%`;node.style.width=`${Math.max(4,dur/tl.total*100)}%`;
       node.onclick=()=>select(type,c,false);el.appendChild(node);
     });
+  }
+  function timelineWords(){
+    const words=tl.analysis?.words||[],out=[];
+    if(!words.length)return out;
+    for(const clip of tl.videoClips){
+      for(const w of words){
+        const s=Math.max(Number(w.start),Number(clip.start)),e=Math.min(Number(w.end),Number(clip.end));
+        if(e-s<.025)continue;
+        out.push({
+          text:w.text,
+          start:Number(clip.outputStart)+(s-Number(clip.start)),
+          end:Number(clip.outputStart)+(e-Number(clip.start)),
+          sourceTime:Number(w.start)
+        });
+      }
+    }
+    return out;
+  }
+  function renderCaptionTrack(){
+    const el=$('#tlCaptionTrack');if(!el)return;el.innerHTML='';
+    const words=timelineWords();
+    if(!words.length){
+      el.innerHTML='<div class="caption-track-empty">حلّل الكلام لظهور الكابشن هنا</div>';
+      return;
+    }
+    for(const w of words){
+      const node=document.createElement('div');
+      node.className='tl-caption-word';
+      node.textContent=w.text;
+      node.title=`${w.text} · ${fmt(w.start)}`;
+      node.style.left=`${Math.max(0,w.start)/tl.total*100}%`;
+      node.style.width=`${Math.max(.8,(w.end-w.start)/tl.total*100)}%`;
+      node.onclick=()=>seekOutput(w.start);
+      el.appendChild(node);
+    }
   }
   function reorderTo(fromId,toId){
     if(fromId===toId)return;
@@ -274,6 +311,7 @@
     let outStart=0;for(const x of tl.videoClips){if(x.id===c.id)break;outStart+=duration(x)}
     tl.cursor=Math.max(outStart,Math.min(outStart+duration(c),outStart+(p.currentTime-c.start)));
     updateCursorUI();
+    window.safirApp?.updateLiveCaption?.(p.parentElement,p.currentTime||0);
     if(!p.paused&&p.currentTime>=c.end-.035){
       const ix=tl.videoClips.findIndex(x=>x.id===c.id);
       if(ix<tl.videoClips.length-1){seekOutput(tl.videoClips[ix+1].outputStart,true)}
